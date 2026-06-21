@@ -1,0 +1,8 @@
+.next
+node_modules
+dist
+build
+*.pyc
+__pycache__/
+plants.db
+.DS_Store
