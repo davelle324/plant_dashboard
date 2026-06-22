@@ -15,7 +15,7 @@
 - **Toasts**: `sonner` is installed. All CRUD mutations (plant create/edit/delete, log create/edit/delete) show `toast.success` / `toast.error`. `<Toaster>` is mounted in `app/layout.tsx`.
 - **Date formatting**: `lib/format.ts` exports `formatDate(iso)` — used in log cards, log history page, and plant detail page.
 - **Health indicator**: Plant detail page computes Healthy / Due soon / Overdue from `daysSinceLastCare` vs `plant.watering_interval_days` (75% threshold for "due soon").
-- The homepage (`/`) is a static landing page with hardcoded placeholder copy — not connected to the database. It exists to demonstrate the product before sign-in.
+- The homepage (`/`) is now a live async server component. It fetches real plants and reminders (catches auth errors gracefully so the page never breaks for signed-out users). Stats show real counts; "At a glance" shows the user's first 3 plants with an overdue/on-track badge. Empty state links to the dashboard.
 
 ## Known Issues / Recent Fixes
 
@@ -26,7 +26,6 @@
 
 ## Next Steps
 
-- Connect homepage stats to real API data (or decide it stays as static marketing copy).
 - Settings page is currently a stub — decide what goes there (user prefs, watering defaults, etc.).
 - Add frontend integration tests (e.g. Playwright) to catch proxy/auth regressions end-to-end.
 - Decide whether the backend should enforce a stronger trust boundary than header-based Clerk identity forwarding.
@@ -40,4 +39,4 @@
 - `docker compose up --build` is the recommended local entrypoint.
 - Run API tests: `cd apps/api && uv run pytest tests/test_main.py -v`
 - The `API_INTERNAL_URL` env var in `apps/web/.env` must point to `http://localhost:8000` when running outside Docker (default in compose is `http://api:8000`).
-- The homepage (`/`) has hardcoded placeholder stats and plant cards — intentional landing page copy, not live data.
+- The homepage (`/`) fetches live data but wraps it in a try/catch — if the user isn't authenticated or the backend is down, all stats show 0 and "At a glance" shows the empty state.
