@@ -1,3 +1,4 @@
+// Maps due_in_days onto [0, 100]: 50 = due today, 100 = freshly watered, 0 = overdue by a full interval.
 export function computeHealthScore(due_in_days: number, watering_interval_days: number): number {
   if (watering_interval_days <= 0) return 50;
   const raw = 50 + (due_in_days / watering_interval_days) * 50;

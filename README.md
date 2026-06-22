@@ -10,11 +10,13 @@ A full-stack plant care tracker with AI assistance and photo uploads.
 - Plant and care log CRUD with per-user data isolation (multi-tenant)
 - Backdated log entries — pick any date and time when adding or editing a log
 - Watering reminders; overdue plants surfaced on dashboard and homepage
-- Dashboard with health donut chart and reminder queue
+- Dashboard with health donut chart, reminder queue, and searchable/filterable plant grid
+- Plant health score (0–100) on every plant card and the detail page, replacing binary Healthy/Overdue
 - Per-plant care activity chart (12-week stacked bar by log type)
-- Analytics page — care events per week, care type breakdown, per-plant stats table, most-active and most-neglected highlights
+- Analytics page — care events per week, care type breakdown, watering consistency trend chart, per-plant stats table
 - Photo uploads with growth history gallery; latest photo shown as thumbnail in plant lists
 - AI assistant powered by Ollama (uses plant history as context, runs locally)
+- Dark mode — toggles via a sun/moon button; preference persists in localStorage
 - Settings: display timezone, plant-form defaults (saved in browser), live API status
 - No-auth local dev mode — no Clerk keys required to run
 
@@ -92,7 +94,7 @@ cd apps/api
 uv run pytest tests/test_main.py -v
 ```
 
-41 tests covering: auth, plant CRUD, user isolation, log CRUD, reminders, photos (upload/delete/cascade), analytics (counts, isolation, avg-days calculation), AI endpoint, health check, CORS.
+46 tests covering: auth, plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS.
 
 ## E2E tests
 

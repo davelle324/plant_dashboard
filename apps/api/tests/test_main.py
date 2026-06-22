@@ -625,3 +625,102 @@ def test_analytics_avg_days_between_waterings(tmp_path):
     stat = r.json()["plant_stats"][0]
     assert stat["watering_count"] == 3
     assert stat["avg_days_between_waterings"] == 7.0
+
+
+def test_analytics_watering_intervals(tmp_path):
+    """watering_intervals contains one entry per consecutive watering pair."""
+    app, db_module, main_module = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+
+    now = datetime.now(timezone.utc)
+    db = db_module.SessionLocal()
+    try:
+        db.add(main_module.Log(plant_id=plant_id, type="watering", created_at=now - timedelta(days=14)))
+        db.add(main_module.Log(plant_id=plant_id, type="watering", created_at=now - timedelta(days=7)))
+        db.add(main_module.Log(plant_id=plant_id, type="watering", created_at=now))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(app) as client:
+        r = client.get("/analytics", headers=AUTH_HEADERS)
+    stat = r.json()["plant_stats"][0]
+    intervals = stat["watering_intervals"]
+    # 3 waterings → 2 intervals
+    assert len(intervals) == 2
+    assert all(i["days"] == 7 for i in intervals)
+    assert all("date" in i for i in intervals)
+
+
+def test_analytics_watering_intervals_empty_for_single_watering(tmp_path):
+    """A plant with only one watering has no intervals to compute."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        client.post("/logs", json={"plant_id": plant_id, "type": "watering"}, headers=AUTH_HEADERS)
+        r = client.get("/analytics", headers=AUTH_HEADERS)
+    stat = r.json()["plant_stats"][0]
+    assert stat["watering_intervals"] == []
+
+
+# ---------------------------------------------------------------------------
+# Reminders — ?all=true query param
+# ---------------------------------------------------------------------------
+
+def test_reminders_all_param_includes_non_overdue(tmp_path):
+    """?all=true returns every plant's reminder row, not just overdue ones."""
+    app, db_module, main_module = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+
+    # Plant is NOT overdue (just created today, interval 7 days)
+    with TestClient(app) as client:
+        r_default = client.get("/reminders", headers=AUTH_HEADERS)
+        r_all = client.get("/reminders?all=true", headers=AUTH_HEADERS)
+
+    assert r_default.json() == []
+    assert len(r_all.json()) == 1
+    assert r_all.json()[0]["plant_id"] == plant_id
+    assert r_all.json()[0]["overdue"] is False
+
+
+def test_reminders_all_param_includes_overdue_and_healthy(tmp_path):
+    """With ?all=true both overdue and healthy plants appear in the same response."""
+    app, db_module, main_module = load_app(tmp_path)
+    with TestClient(app) as client:
+        overdue_id = _make_plant(client, AUTH_HEADERS)
+        healthy_id = _make_plant(client, AUTH_HEADERS)
+
+    now = datetime.now(timezone.utc)
+    db = db_module.SessionLocal()
+    try:
+        overdue = db.get(main_module.Plant, overdue_id)
+        overdue.created_at = now - timedelta(days=30)
+        # healthy plant watered recently
+        db.add(main_module.Log(plant_id=healthy_id, type="watering", created_at=now - timedelta(days=1)))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(app) as client:
+        r = client.get("/reminders?all=true", headers=AUTH_HEADERS)
+
+    rows = r.json()
+    assert len(rows) == 2
+    overdue_row = next(r for r in rows if r["plant_id"] == overdue_id)
+    healthy_row = next(r for r in rows if r["plant_id"] == healthy_id)
+    assert overdue_row["overdue"] is True
+    assert healthy_row["overdue"] is False
+
+
+def test_reminders_all_param_isolated_per_user(tmp_path):
+    """?all=true still enforces user isolation."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _make_plant(client, AUTH_HEADERS)
+        _make_plant(client, OTHER_HEADERS)
+        r_user = client.get("/reminders?all=true", headers=AUTH_HEADERS)
+        r_other = client.get("/reminders?all=true", headers=OTHER_HEADERS)
+    assert len(r_user.json()) == 1
+    assert len(r_other.json()) == 1

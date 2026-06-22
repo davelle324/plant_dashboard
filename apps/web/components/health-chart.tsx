@@ -54,16 +54,16 @@ export function HealthChart({ total, overdue }: Props) {
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-emerald-500" />
           <span className="text-slate-600">Healthy</span>
-          <span className="ml-auto font-semibold text-ink">{healthy}</span>
+          <span className="ml-auto font-semibold text-ink dark:text-white">{healthy}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-rose-500" />
           <span className="text-slate-600">Overdue</span>
-          <span className="ml-auto font-semibold text-ink">{overdue}</span>
+          <span className="ml-auto font-semibold text-ink dark:text-white">{overdue}</span>
         </div>
         <div className="flex items-center gap-2 border-t border-black/5 pt-3">
           <span className="text-slate-500">Total</span>
-          <span className="ml-auto font-semibold text-ink">{total}</span>
+          <span className="ml-auto font-semibold text-ink dark:text-white">{total}</span>
         </div>
       </div>
     </div>

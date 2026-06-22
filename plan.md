@@ -251,12 +251,13 @@ Capabilities:
 
 ## Stretch Goals
 
-- Photo upload per plant (growth tracking)
-- Graphs (watering frequency, health trends)
-- Email notifications (SendGrid)
-- Mobile-friendly UI
+- ✅ Photo upload per plant (growth tracking)
+- ✅ Graphs (watering frequency, health trends — care activity chart + analytics trend chart)
+- ✅ Plant “health score” algorithm (0–100 based on watering adherence)
+- ✅ Dark mode
+- Email notifications (SendGrid) — reminder data ready, just needs a cron + sender
+- Mobile-friendly UI — functional but untested at phone widths
 - Offline support (PWA)
-- Plant “health score” algorithm
 
 ---
 

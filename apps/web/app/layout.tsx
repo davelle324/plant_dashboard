@@ -14,6 +14,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
+    // suppressHydrationWarning: ThemeProvider sets the 'dark' class client-side,
+    // so the server and first client render disagree on <html> className — suppressed intentionally.
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
