@@ -1,20 +1,41 @@
 from __future__ import annotations
 
-import time
 import os
+import shutil
+import time
+import uuid
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+import httpx
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
-from .models import Log, Plant, User
-from .schemas import AskRequest, AskResponse, LogCreate, LogRead, LogUpdate, PlantCreate, PlantRead, PlantUpdate, ReminderRead
+from .models import Log, Photo, Plant, User
+from .schemas import (
+    AskRequest,
+    AskResponse,
+    LogCreate,
+    LogRead,
+    LogUpdate,
+    PhotoRead,
+    PlantCreate,
+    PlantRead,
+    PlantUpdate,
+    ReminderRead,
+)
 
 app = FastAPI(title="Plant Care API")
+
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/uploads"))
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
+AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:0.5b")
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 cors_origins = [
     origin.strip()
@@ -66,6 +87,13 @@ def log_or_404(db: Session, log_id: int, user_id: int) -> Log:
     return log
 
 
+def photo_or_404(db: Session, photo_id: int, user_id: int) -> Photo:
+    photo = db.scalar(select(Photo).join(Plant).where(Photo.id == photo_id, Plant.user_id == user_id))
+    if photo is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return photo
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -73,17 +101,25 @@ def health() -> dict[str, str]:
 
 @app.on_event("startup")
 def startup() -> None:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     last_error: Exception | None = None
     for _ in range(30):
         try:
             Base.metadata.create_all(bind=engine)
             return
-        except Exception as exc:  # pragma: no cover - startup resilience
+        except Exception as exc:  # pragma: no cover
             last_error = exc
             time.sleep(1)
     if last_error is not None:
         raise last_error
 
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), name="uploads")
+
+
+# ---------------------------------------------------------------------------
+# Plants
+# ---------------------------------------------------------------------------
 
 @app.get("/plants", response_model=list[PlantRead])
 def list_plants(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Sequence[Plant]:
@@ -121,6 +157,10 @@ def delete_plant(plant_id: int, db: Session = Depends(get_db), current_user: Use
     db.commit()
 
 
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
+
 @app.get("/plants/{plant_id}/logs", response_model=list[LogRead])
 def list_logs(plant_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Sequence[Log]:
     plant_or_404(db, plant_id, current_user.id)
@@ -155,6 +195,56 @@ def delete_log(log_id: int, db: Session = Depends(get_db), current_user: User = 
     db.commit()
 
 
+# ---------------------------------------------------------------------------
+# Photos
+# ---------------------------------------------------------------------------
+
+@app.get("/plants/{plant_id}/photos", response_model=list[PhotoRead])
+def list_photos(plant_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Sequence[Photo]:
+    plant_or_404(db, plant_id, current_user.id)
+    return db.scalars(select(Photo).where(Photo.plant_id == plant_id).order_by(Photo.created_at.desc())).all()
+
+
+@app.post("/plants/{plant_id}/photos", response_model=PhotoRead, status_code=201)
+async def upload_photo(
+    plant_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Photo:
+    plant_or_404(db, plant_id, current_user.id)
+
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
+
+    plant_dir = UPLOAD_DIR / str(plant_id)
+    plant_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid.uuid4()}{ext}"
+    with open(plant_dir / filename, "wb") as dest:
+        shutil.copyfileobj(file.file, dest)
+
+    photo = Photo(plant_id=plant_id, filename=filename)
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    return photo
+
+
+@app.delete("/photos/{photo_id}", status_code=204)
+def delete_photo(photo_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> None:
+    photo = photo_or_404(db, photo_id, current_user.id)
+    path = UPLOAD_DIR / str(photo.plant_id) / photo.filename
+    path.unlink(missing_ok=True)
+    db.delete(photo)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Reminders
+# ---------------------------------------------------------------------------
+
 def reminder_rows(db: Session, user_id: int) -> list[ReminderRead]:
     plants = db.scalars(select(Plant).where(Plant.user_id == user_id)).all()
     reminders: list[ReminderRead] = []
@@ -187,12 +277,44 @@ def get_reminders(db: Session = Depends(get_db), current_user: User = Depends(ge
     return [row for row in reminder_rows(db, current_user.id) if row.overdue]
 
 
+# ---------------------------------------------------------------------------
+# AI
+# ---------------------------------------------------------------------------
+
 @app.post("/ai/ask", response_model=AskResponse)
 def ask_ai(payload: AskRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AskResponse:
-    plant_or_404(db, payload.plant_id, current_user.id)
-    return AskResponse(
-        answer=(
-            "AI assistant is reserved for phase 2. "
-            f"Question received for plant {payload.plant_id}: {payload.question}"
-        )
+    plant = plant_or_404(db, payload.plant_id, current_user.id)
+
+    recent_logs = db.scalars(
+        select(Log).where(Log.plant_id == plant.id).order_by(Log.created_at.desc()).limit(10)
+    ).all()
+
+    log_lines = "\n".join(
+        f"- {log.type} on {log.created_at.date()}" + (f": {log.note}" if log.note else "")
+        for log in recent_logs
+    ) or "No care history yet."
+
+    prompt = (
+        f"You are a concise plant care assistant.\n\n"
+        f"Plant: {plant.name} ({plant.species})\n"
+        f"Location: {plant.location}\n"
+        f"Watering interval: every {plant.watering_interval_days} days\n\n"
+        f"Recent care history:\n{log_lines}\n\n"
+        f"Question: {payload.question}\n\n"
+        f"Answer in 2-3 sentences."
     )
+
+    try:
+        response = httpx.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": AI_MODEL, "prompt": prompt, "stream": False},
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        return AskResponse(answer=response.json()["response"].strip())
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="AI service is not running. Start Ollama and pull a model.")
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=503, detail=f"Ollama error: {exc.response.text}")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"AI service unavailable: {exc}")

@@ -19,6 +19,9 @@ class User(Base):
     plants: Mapped[list["Plant"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
+
+
+
 class Plant(Base):
     __tablename__ = "plants"
 
@@ -32,6 +35,7 @@ class Plant(Base):
 
     user: Mapped["User"] = relationship(back_populates="plants")
     logs: Mapped[list["Log"]] = relationship(back_populates="plant", cascade="all, delete-orphan")
+    photos: Mapped[list["Photo"]] = relationship(back_populates="plant", cascade="all, delete-orphan")
 
 
 class Log(Base):
@@ -44,3 +48,14 @@ class Log(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     plant: Mapped["Plant"] = relationship(back_populates="logs")
+
+
+class Photo(Base):
+    __tablename__ = "photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), index=True, nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    plant: Mapped["Plant"] = relationship(back_populates="photos")

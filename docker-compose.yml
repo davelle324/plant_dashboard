@@ -17,17 +17,36 @@ services:
       timeout: 5s
       retries: 10
 
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Start the server, wait until it responds, then pull the model if not cached.
+    # On subsequent starts the pull is a no-op (model lives in the volume).
+    entrypoint: >
+      sh -c "ollama serve &
+             until ollama list 2>/dev/null; do sleep 2; done;
+             ollama pull ${AI_MODEL:-qwen2.5:0.5b};
+             wait"
+
   api:
     build:
       context: ./apps/api
     environment:
       DATABASE_URL: postgresql+psycopg://plants:plants@db:5432/plants
+      OLLAMA_URL: http://ollama:11434
+      AI_MODEL: qwen2.5:0.5b
+      UPLOAD_DIR: /uploads
     ports:
       - "8000:8000"
     volumes:
       - ./apps/api:/app
+      - uploads_data:/uploads
     depends_on:
-      - db   # 👈 simplified for old docker-compose
+      - db
+      - ollama
 
   web:
     build:
@@ -49,3 +68,5 @@ services:
 
 volumes:
   postgres_data:
+  ollama_data:
+  uploads_data:

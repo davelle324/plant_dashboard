@@ -1,4 +1,4 @@
-import type { LogEntry, Plant } from "./types";
+import type { LogEntry, Photo, Plant } from "./types";
 
 const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
 
@@ -100,5 +100,33 @@ export function updateLog(id: number, payload: LogInput) {
 export function deleteLog(id: number) {
   return request<void>(`/api/logs/${id}`, {
     method: "DELETE"
+  });
+}
+
+// Photos — multipart upload, so we pass FormData directly (no Content-Type override)
+export function getPhotos(plantId: number) {
+  return request<Photo[]>(`/api/plants/${plantId}/photos`);
+}
+
+export function uploadPhoto(plantId: number, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  return request<Photo>(`/api/plants/${plantId}/photos`, {
+    method: "POST",
+    body: form as unknown as BodyInit,
+    // No Content-Type — browser sets it automatically with the correct boundary
+    headers: {}
+  });
+}
+
+export function deletePhoto(photoId: number) {
+  return request<void>(`/api/photos/${photoId}`, { method: "DELETE" });
+}
+
+// AI
+export function askAI(plantId: number, question: string) {
+  return request<{ answer: string }>("/api/ai/ask", {
+    method: "POST",
+    body: JSON.stringify({ plant_id: plantId, question })
   });
 }

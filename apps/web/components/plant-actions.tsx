@@ -19,16 +19,10 @@ export function PlantActions({ plant }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Link
-        href={`/plant/${plant.id}/logs`}
+        href={`/plant/${plant.id}`}
         className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink"
       >
-        View logs
-      </Link>
-      <Link
-        href={`/plant/${plant.id}`}
-        className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-cream"
-      >
-        Edit
+        View detail
       </Link>
       <button
         className="rounded-full bg-rose-100 px-4 py-2 text-sm font-medium text-rose-800 disabled:opacity-60"

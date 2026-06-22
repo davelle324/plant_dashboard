@@ -24,13 +24,20 @@ async function proxy(request: Request, path: string[] | undefined) {
   const backendUrl = `${API_BASE_URL}${toBackendPath(path)}${url.search}`;
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
-  const body = hasBody ? await request.text() : undefined;
+  const contentType = request.headers.get("content-type") ?? "";
+
+  // Multipart bodies must be forwarded as raw bytes to preserve the boundary.
+  // JSON and text bodies are safe to read as text.
+  const body = hasBody
+    ? contentType.includes("multipart/form-data") || contentType.includes("application/octet-stream")
+      ? await request.arrayBuffer()
+      : await request.text()
+    : undefined;
 
   const forwardHeaders: Record<string, string> = {
     "x-clerk-user-id": userId,
   };
 
-  const contentType = request.headers.get("content-type");
   if (contentType) forwardHeaders["content-type"] = contentType;
 
   const clerkEmail = request.headers.get("x-clerk-user-email");

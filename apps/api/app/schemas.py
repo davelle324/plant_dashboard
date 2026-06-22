@@ -60,6 +60,15 @@ class ReminderRead(BaseModel):
     due_in_days: int
 
 
+class PhotoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    plant_id: int
+    filename: str
+    created_at: datetime
+
+
 class AskRequest(BaseModel):
     plant_id: int
     question: str

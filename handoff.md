@@ -30,7 +30,9 @@
 - **Playwright e2e tests** live in `apps/web/e2e/`. Run with `cd apps/web && npm run test:e2e` (requires the full Docker stack running). 4 suites: homepage, dashboard (plant CRUD), plant-detail (log CRUD, date formatting), settings. Use `npm run test:e2e:ui` for the interactive Playwright UI.
 - Decide whether the backend should enforce a stronger trust boundary than header-based Clerk identity forwarding.
 - If Clerk auth is needed locally, replace the empty compose placeholders with real `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` values.
-- Phase 2: AI assistant via Ollama, embeddings/RAG for plant history semantic search.
+- **AI assistant** (live): `POST /ai/ask` calls Ollama at `$OLLAMA_URL` with the plant's care history as context. Model is `$AI_MODEL` (default `qwen2.5:0.5b`). Model is auto-pulled on first boot (stored in `ollama_data` volume, so subsequent restarts skip the download). The `AiChat` component lives in `components/ai-chat.tsx` and is wired into the plant detail page.
+- **Photo uploads** (live): `POST /plants/{id}/photos` accepts multipart file upload, stores to a Docker volume at `$UPLOAD_DIR` (default `/uploads`), serves files via FastAPI `StaticFiles` at `/uploads/{plant_id}/{filename}`. Frontend `PhotoGallery` component (`components/photo-gallery.tsx`) handles upload, grid display, and delete. Proxy correctly forwards multipart bodies as `arrayBuffer()`.
+- Embeddings/RAG for plant history semantic search — Phase 2 stretch goal, not started.
 
 ## Notes
 

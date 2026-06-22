@@ -16,3 +16,10 @@ export type LogEntry = {
   created_at: string;
 };
 
+export type Photo = {
+  id: number;
+  plant_id: number;
+  filename: string;
+  created_at: string;
+};
+
