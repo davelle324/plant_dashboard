@@ -67,7 +67,12 @@ class PhotoRead(BaseModel):
     id: int
     plant_id: int
     filename: str
+    caption: str | None = None
     created_at: datetime
+
+
+class PhotoWithPlant(PhotoRead):
+    plant_name: str
 
 
 class AskRequest(BaseModel):

@@ -5,14 +5,15 @@ import shutil
 import time
 import uuid
 from collections.abc import Sequence
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
@@ -25,6 +26,7 @@ from .schemas import (
     LogRead,
     LogUpdate,
     PhotoRead,
+    PhotoWithPlant,
     PlantCreate,
     PlantRead,
     PlantUpdate,
@@ -34,12 +36,37 @@ from .schemas import (
     WeeklyCount,
 )
 
-app = FastAPI(title="Plant Care API")
-
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/uploads"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:0.5b")
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    last_error: Exception | None = None
+    for _ in range(30):
+        try:
+            Base.metadata.create_all(bind=engine)
+            # Add caption column to photos if it doesn't exist (safe on SQLite + Postgres).
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text("ALTER TABLE photos ADD COLUMN caption VARCHAR(500)"))
+                    conn.commit()
+                except Exception:
+                    pass  # column already exists
+            break
+        except Exception as exc:  # pragma: no cover
+            last_error = exc
+            time.sleep(1)
+    else:
+        if last_error is not None:
+            raise last_error
+    yield
+
+
+app = FastAPI(title="Plant Care API", lifespan=lifespan)
 
 cors_origins = [
     origin.strip()
@@ -101,21 +128,6 @@ def photo_or_404(db: Session, photo_id: int, user_id: int) -> Photo:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-@app.on_event("startup")
-def startup() -> None:
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    last_error: Exception | None = None
-    for _ in range(30):
-        try:
-            Base.metadata.create_all(bind=engine)
-            return
-        except Exception as exc:  # pragma: no cover
-            last_error = exc
-            time.sleep(1)
-    if last_error is not None:
-        raise last_error
 
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), name="uploads")
@@ -231,6 +243,7 @@ def list_photos(plant_id: int, db: Session = Depends(get_db), current_user: User
 async def upload_photo(
     plant_id: int,
     file: UploadFile = File(...),
+    caption: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Photo:
@@ -247,7 +260,7 @@ async def upload_photo(
     with open(plant_dir / filename, "wb") as dest:
         shutil.copyfileobj(file.file, dest)
 
-    photo = Photo(plant_id=plant_id, filename=filename)
+    photo = Photo(plant_id=plant_id, filename=filename, caption=caption or None)
     db.add(photo)
     db.commit()
     db.refresh(photo)
@@ -261,6 +274,29 @@ def delete_photo(photo_id: int, db: Session = Depends(get_db), current_user: Use
     path.unlink(missing_ok=True)
     db.delete(photo)
     db.commit()
+
+
+@app.get("/photos", response_model=list[PhotoWithPlant])
+def list_all_photos(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[PhotoWithPlant]:
+    rows = db.execute(
+        select(Photo, Plant.name)
+        .join(Plant, Photo.plant_id == Plant.id)
+        .where(Plant.user_id == current_user.id)
+        .order_by(Photo.created_at.desc())
+    ).all()
+    # row.Photo accesses the Photo model instance; row[1] is the scalar Plant.name
+    # selected alongside it — SQLAlchemy names mixed-select columns by position.
+    return [
+        PhotoWithPlant(
+            id=row.Photo.id,
+            plant_id=row.Photo.plant_id,
+            filename=row.Photo.filename,
+            caption=row.Photo.caption,
+            created_at=row.Photo.created_at,
+            plant_name=row[1],
+        )
+        for row in rows
+    ]
 
 
 # ---------------------------------------------------------------------------

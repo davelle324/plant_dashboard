@@ -93,7 +93,8 @@ export function PlantGrid({ plants, reminders }: Props) {
           await Promise.all(ids.map((id) => deletePlant(id)));
           toast.success(`Deleted ${ids.length} plant${ids.length === 1 ? "" : "s"}`);
         } else {
-          await Promise.all(ids.map((id) => createLog({ plant_id: id, type: action })));
+          const created_at = new Date().toISOString();
+          await Promise.all(ids.map((id) => createLog({ plant_id: id, type: action, created_at })));
           const label = action === "watering" ? "Watered" : "Fertilized";
           toast.success(`${label} ${ids.length} plant${ids.length === 1 ? "" : "s"}`);
         }

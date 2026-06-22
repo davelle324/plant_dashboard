@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class User(Base):
@@ -31,7 +35,7 @@ class Plant(Base):
     species: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str] = mapped_column(String(255), nullable=False)
     watering_interval_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="plants")
     logs: Mapped[list["Log"]] = relationship(back_populates="plant", cascade="all, delete-orphan")
@@ -45,7 +49,7 @@ class Log(Base):
     plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), index=True, nullable=False)
     type: Mapped[str] = mapped_column(String(32), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     plant: Mapped["Plant"] = relationship(back_populates="logs")
 
@@ -56,6 +60,7 @@ class Photo(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), index=True, nullable=False)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    caption: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     plant: Mapped["Plant"] = relationship(back_populates="photos")

@@ -13,9 +13,9 @@ Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAP
 | Route | Description |
 |-------|-------------|
 | `/` | Homepage — live stats, "Needs attention" panel with quick-water buttons, feature highlights, "At a glance" plant list with photo thumbnails. Dark mode toggle in hero. |
-| `/dashboard` | All plants with search/filter (name, species, location) and health-status tabs (All / Healthy / Due soon / Overdue). Health donut chart, reminder queue, add-plant form. Dark mode toggle in nav. |
+| `/dashboard` | All plants with search/filter (name, species, location) and health-status tabs (All / Healthy / Due soon / Overdue). Health donut chart, reminder queue, add-plant form. Bulk actions (water / fertilize / delete selected plants), load-more pagination. Gallery section at the bottom showing every photo across all plants. Dark mode toggle in nav. |
 | `/analytics` | Care events per week (bar chart), care type breakdown (donut), watering consistency trend chart (per-plant line chart), most-active / most-neglected highlights, per-plant stats table. Dark mode toggle in nav. |
-| `/plant/[id]` | Plant detail — health score (0–100), edit form, care history with log form (datetime picker), 12-week care activity chart, photo gallery, AI chat. Dark mode toggle in nav. |
+| `/plant/[id]` | Plant detail — health score (0–100), edit form, care history with log form (datetime picker), 12-week care activity chart, photo gallery with optional captions, AI chat. Dark mode toggle in nav. |
 | `/settings` | Account info + live API status, plant defaults (localStorage), display timezone (localStorage), AI config info, notifications placeholder. |
 
 ### Backend endpoints
@@ -24,9 +24,26 @@ Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAP
 - `GET /reminders` — overdue plants only (due_in_days ≤ 0)
 - `GET /reminders?all=true` — all plants' reminder rows (overdue + healthy); powers the dashboard filter
 - `GET /analytics` — includes `watering_intervals: [{date, days}]` per plant for the trends chart
-- `GET/POST /plants/{id}/photos`, `DELETE /photos/{id}` — photo upload/delete; files stored at `$UPLOAD_DIR/{plant_id}/{uuid}.ext`; served via FastAPI StaticFiles at `/uploads/...`
+- `GET /plants/{id}/photos` — photos for a single plant (returns `PhotoRead` with `caption`)
+- `POST /plants/{id}/photos` — multipart upload; accepts optional `caption` form field alongside `file`
+- `DELETE /photos/{id}` — deletes file from disk and database row
+- `GET /photos` — all photos across all user's plants, newest first, joined with `plant_name` (returns `PhotoWithPlant`); powers the dashboard gallery
 - `POST /ai/ask` — sends plant + care history context to Ollama; returns 503 with helpful message if `OLLAMA_URL` is unset/unreachable
 - `GET /health` — `{"status":"ok"}`
+
+### Photo caption flow
+Captions are optional (max 500 chars). They are:
+- Entered via a text input next to the Upload button on the plant detail page
+- Stored on the `photos` table (`caption VARCHAR(500)`)
+- Returned in all photo API responses
+- Shown as a hover overlay on photo cards in the per-plant gallery and the dashboard gallery
+- Never shown on the small thumbnails in plant lists
+
+The `caption` column was added after initial schema creation, so a startup migration runs at boot:
+```python
+conn.execute(text("ALTER TABLE photos ADD COLUMN caption VARCHAR(500)"))
+```
+This is safe to run repeatedly (errors are swallowed if the column already exists).
 
 ### Key frontend files
 | File | Notes |
@@ -34,11 +51,12 @@ Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAP
 | `lib/health.ts` | `computeHealthScore(due_in_days, interval)` → 0–100 int; `healthColor(score)` → Tailwind class string |
 | `lib/theme.tsx` | `ThemeProvider` + `useTheme()` hook — reads/writes localStorage `"theme"`, toggles `dark` class on `<html>` |
 | `components/theme-toggle.tsx` | Sun/moon button; used in homepage hero, dashboard nav, analytics nav, and plant detail nav |
-| `components/plant-grid.tsx` | Client component — search input + All/Healthy/Due soon/Overdue tab filter + plant cards with health score badge |
+| `components/plant-grid.tsx` | Client component — search input, health-tab filter, health score badges, per-card checkboxes, floating bulk-action bar, "Load more" pagination |
+| `components/dashboard-gallery.tsx` | Client component — responsive 2/3/4 col grid of all photos; always-visible plant name strip; caption on hover; each card links to `/plant/[id]` |
 | `components/plant-form.tsx` | Reads plant defaults from `localStorage` on mount when creating |
 | `components/log-form.tsx` | `datetime-local` picker defaulting to now; sends `created_at` as UTC ISO string |
 | `components/log-entry-card.tsx` | Client component; reads `preferredTimezone` from localStorage for display |
-| `components/photo-gallery.tsx` | Optimistic local state for upload/delete; calls `router.refresh()` after changes |
+| `components/photo-gallery.tsx` | Optimistic local state for upload/delete; caption text input + hover caption overlay; calls `router.refresh()` after changes |
 | `components/care-chart.tsx` | 12-week stacked bar (watering/fertilizing/pruning/notes) via Recharts |
 | `components/health-chart.tsx` | Donut showing healthy vs overdue plant count |
 | `components/analytics-charts.tsx` | `ActivityChart`, `TypeBreakdownChart`, `WateringTrendsChart` (per-plant line chart of days between waterings) |
@@ -76,7 +94,7 @@ Switching between Docker and local: the local script wipes `.next` and `tmp` fir
 ## Running Tests
 
 ```bash
-# API (46 tests)
+# API (49 tests)
 cd apps/api && uv run pytest tests/test_main.py -v
 
 # E2E (requires full stack running)
@@ -97,6 +115,7 @@ cd apps/web && npm run test:e2e:ui   # interactive UI
 - `DATABASE_URL` supports both Postgres (`postgresql+psycopg://...`) and SQLite (`sqlite:///./plants.db`)
 - `API_INTERNAL_URL` must be `http://localhost:8000` locally; Docker compose sets it to `http://api:8000`
 - Photo files are served by FastAPI `StaticFiles` mounted at `/uploads`; in Docker this is a named volume (`uploads_data`)
+- Schema changes are handled by startup migrations (`ALTER TABLE … ADD COLUMN` in `startup()`) rather than Alembic; errors are swallowed if the column already exists, so migrations are safe to run repeatedly
 - Ollama model is auto-pulled on first Docker boot (stored in `ollama_data` volume); `run-local.sh` also auto-pulls if Ollama is installed
 - Backend trust boundary: `x-clerk-user-id` header is trusted without cryptographic verification — acceptable for local dev, should be hardened before public deployment
 
@@ -114,12 +133,13 @@ Ordered roughly by impact / effort ratio:
 
 ### Smaller polish
 - **Mobile layout** — Test and improve the grid/card layouts at phone widths. Some sections may need single-column stacking.
-- **Bulk actions** — Select multiple plants on the dashboard, mark all as watered at once.
-- **Pagination / infinite scroll** on dashboard for large collections.
 - **Search/filter on dashboard** — ✅ Done (text search + health-status tabs on the plant grid).
 - **Plant health score** — ✅ Done (0–100 on plant cards and detail page).
 - **Trends on analytics** — ✅ Done (watering consistency line chart).
 - **Dark mode** — ✅ Done (Tailwind class mode, localStorage persistence).
+- **Bulk actions** — ✅ Done (select + water / fertilize / delete from dashboard).
+- **Pagination** — ✅ Done (load-more button on plant grid).
+- **Gallery with captions** — ✅ Done (dashboard gallery + per-plant caption hover overlay).
 
 ### Larger / Phase 2
 - **Background cron for reminders** — Currently reminders are computed on-demand. For email/push, a scheduled job (Celery + Redis, or a simple cron endpoint) is needed.

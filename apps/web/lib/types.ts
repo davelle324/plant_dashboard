@@ -21,8 +21,11 @@ export type Photo = {
   id: number;
   plant_id: number;
   filename: string;
+  caption?: string | null;
   created_at: string;
 };
+
+export type PhotoWithPlant = Photo & { plant_name: string };
 
 export type WateringInterval = {
   date: string;

@@ -42,6 +42,7 @@ def test_requires_authentication(tmp_path):
         assert client.get("/plants").status_code == 401
         assert client.post("/plants", json=PLANT_PAYLOAD).status_code == 401
         assert client.get("/reminders").status_code == 401
+        assert client.get("/photos").status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -724,3 +725,64 @@ def test_reminders_all_param_isolated_per_user(tmp_path):
         r_other = client.get("/reminders?all=true", headers=OTHER_HEADERS)
     assert len(r_user.json()) == 1
     assert len(r_other.json()) == 1
+
+
+# ---------------------------------------------------------------------------
+# Photos — caption + GET /photos gallery endpoint
+# ---------------------------------------------------------------------------
+
+def test_upload_photo_with_caption(tmp_path):
+    """Caption is stored and returned when provided at upload time."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = client.post(
+            f"/plants/{plant_id}/photos",
+            files={"file": ("plant.jpg", b"fake-image", "image/jpeg")},
+            data={"caption": "First leaves!"},
+            headers=AUTH_HEADERS,
+        )
+    assert r.status_code == 201
+    assert r.json()["caption"] == "First leaves!"
+
+
+def test_list_all_photos_endpoint(tmp_path):
+    """GET /photos returns every photo across all plants with plant_name included."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_a = _make_plant(client, AUTH_HEADERS)
+        plant_b = client.post(
+            "/plants",
+            json={**PLANT_PAYLOAD, "name": "Mint"},
+            headers=AUTH_HEADERS,
+        ).json()["id"]
+        _upload_photo(client, plant_a, AUTH_HEADERS)
+        client.post(
+            f"/plants/{plant_b}/photos",
+            files={"file": ("mint.jpg", b"fake-image", "image/jpeg")},
+            data={"caption": "Thriving"},
+            headers=AUTH_HEADERS,
+        )
+        r = client.get("/photos", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    photos = r.json()
+    assert len(photos) == 2
+    plant_names = {p["plant_name"] for p in photos}
+    assert plant_names == {"Basil", "Mint"}
+    captioned = next(p for p in photos if p["caption"])
+    assert captioned["caption"] == "Thriving"
+
+
+def test_list_all_photos_isolated_per_user(tmp_path):
+    """GET /photos only returns photos belonging to the authenticated user."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_user = _make_plant(client, AUTH_HEADERS)
+        plant_other = _make_plant(client, OTHER_HEADERS)
+        _upload_photo(client, plant_user, AUTH_HEADERS)
+        _upload_photo(client, plant_other, OTHER_HEADERS)
+        r_user = client.get("/photos", headers=AUTH_HEADERS)
+        r_other = client.get("/photos", headers=OTHER_HEADERS)
+    assert len(r_user.json()) == 1
+    assert len(r_other.json()) == 1
+    assert r_user.json()[0]["plant_name"] == "Basil"

@@ -1,16 +1,18 @@
 import Link from "next/link";
 
-import { getAllReminders, getPlants, getReminders } from "@/lib/api";
+import { getAllPhotos, getAllReminders, getPlants, getReminders } from "@/lib/api";
+import { DashboardGallery } from "@/components/dashboard-gallery";
 import { HealthChart } from "@/components/health-chart";
 import { PlantForm } from "@/components/plant-form";
 import { PlantGrid } from "@/components/plant-grid";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardPage() {
-  const [plants, reminders, allReminders] = await Promise.all([
+  const [plants, reminders, allReminders, allPhotos] = await Promise.all([
     getPlants(),
     getReminders(),
     getAllReminders(),
+    getAllPhotos().catch(() => []),
   ]);
 
   return (
@@ -80,6 +82,16 @@ export default async function DashboardPage() {
         <h2 className="text-xl font-semibold">All plants</h2>
         <div className="mt-4">
           <PlantGrid plants={plants} reminders={allReminders} />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[2rem] bg-white/75 p-6 shadow-soft dark:bg-white/5">
+        <h2 className="text-xl font-semibold text-ink dark:text-cream">Gallery</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          All photos across your plants. Click any photo to visit its plant page.
+        </p>
+        <div className="mt-4">
+          <DashboardGallery photos={allPhotos} />
         </div>
       </section>
     </main>

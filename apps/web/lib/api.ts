@@ -1,4 +1,4 @@
-import type { Analytics, LogEntry, Photo, Plant, Reminder } from "./types";
+import type { Analytics, LogEntry, Photo, PhotoWithPlant, Plant, Reminder } from "./types";
 
 const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
 
@@ -105,15 +105,20 @@ export function getPhotos(plantId: number) {
   return request<Photo[]>(`/api/plants/${plantId}/photos`);
 }
 
-export function uploadPhoto(plantId: number, file: File) {
+export function uploadPhoto(plantId: number, file: File, caption?: string) {
   const form = new FormData();
   form.append("file", file);
+  if (caption?.trim()) form.append("caption", caption.trim());
   return request<Photo>(`/api/plants/${plantId}/photos`, {
     method: "POST",
     body: form as unknown as BodyInit,
     // No Content-Type — browser sets it automatically with the correct boundary
     headers: {}
   });
+}
+
+export function getAllPhotos() {
+  return request<PhotoWithPlant[]>("/api/photos");
 }
 
 export function deletePhoto(photoId: number) {
