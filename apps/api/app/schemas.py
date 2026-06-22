@@ -29,6 +29,7 @@ class PlantRead(PlantBase):
     id: int
     user_id: int
     created_at: datetime
+    latest_photo: "PhotoRead | None" = None
 
 
 class LogBase(BaseModel):
@@ -38,11 +39,11 @@ class LogBase(BaseModel):
 
 
 class LogCreate(LogBase):
-    pass
+    created_at: datetime | None = None
 
 
 class LogUpdate(LogBase):
-    pass
+    created_at: datetime | None = None
 
 
 class LogRead(LogBase):

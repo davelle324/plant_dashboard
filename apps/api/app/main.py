@@ -5,14 +5,14 @@ import shutil
 import time
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timezone  # noqa: F401 – timezone used in create_log/update_log
 from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
@@ -122,8 +122,21 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), n
 # ---------------------------------------------------------------------------
 
 @app.get("/plants", response_model=list[PlantRead])
-def list_plants(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Sequence[Plant]:
-    return db.scalars(select(Plant).where(Plant.user_id == current_user.id).order_by(Plant.created_at.desc())).all()
+def list_plants(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[Plant]:
+    plants = list(db.scalars(select(Plant).where(Plant.user_id == current_user.id).order_by(Plant.created_at.desc())).all())
+    if plants:
+        plant_ids = [p.id for p in plants]
+        latest_subq = (
+            select(Photo.plant_id, func.max(Photo.id).label("max_id"))
+            .where(Photo.plant_id.in_(plant_ids))
+            .group_by(Photo.plant_id)
+            .subquery()
+        )
+        latest_photos = db.scalars(select(Photo).join(latest_subq, Photo.id == latest_subq.c.max_id)).all()
+        photo_map = {p.plant_id: p for p in latest_photos}
+        for plant in plants:
+            plant.latest_photo = photo_map.get(plant.id)
+    return plants
 
 
 @app.post("/plants", response_model=PlantRead, status_code=201)
@@ -170,7 +183,10 @@ def list_logs(plant_id: int, db: Session = Depends(get_db), current_user: User =
 @app.post("/logs", response_model=LogRead, status_code=201)
 def create_log(payload: LogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Log:
     plant_or_404(db, payload.plant_id, current_user.id)
-    log = Log(**payload.model_dump())
+    log = Log(
+        **payload.model_dump(exclude={"created_at"}),
+        created_at=payload.created_at if payload.created_at else datetime.now(timezone.utc),
+    )
     db.add(log)
     db.commit()
     db.refresh(log)
@@ -181,8 +197,10 @@ def create_log(payload: LogCreate, db: Session = Depends(get_db), current_user: 
 def update_log(log_id: int, payload: LogUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Log:
     log = log_or_404(db, log_id, current_user.id)
     plant_or_404(db, payload.plant_id, current_user.id)
-    for key, value in payload.model_dump().items():
+    for key, value in payload.model_dump(exclude={"created_at"}).items():
         setattr(log, key, value)
+    if payload.created_at is not None:
+        log.created_at = payload.created_at
     db.commit()
     db.refresh(log)
     return log

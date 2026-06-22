@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getPlant, getPlantLogs, getPhotos } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { AiChat } from "@/components/ai-chat";
@@ -35,7 +37,15 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-8 md:px-10">
-      <p className="text-sm uppercase tracking-[0.3em] text-moss">Plant detail</p>
+      <div className="flex items-center gap-4">
+        <Link
+          href="/dashboard"
+          className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-sm font-medium text-ink transition hover:bg-white"
+        >
+          ← Dashboard
+        </Link>
+      </div>
+      <p className="mt-4 text-sm uppercase tracking-[0.3em] text-moss">Plant detail</p>
       <h1 className="mt-2 text-3xl font-semibold text-ink">{plant.name}</h1>
 
       <div className="mt-8 space-y-6">

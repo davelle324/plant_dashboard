@@ -71,13 +71,26 @@ export default async function DashboardPage() {
         <h2 className="text-xl font-semibold">All plants</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plants.map((plant) => (
-            <div key={plant.id} className="rounded-2xl bg-white/8 p-4">
-              <p className="font-medium">{plant.name}</p>
-              <p className="mt-1 text-sm text-cream/70">
-                {plant.species} · {plant.location}
-              </p>
-              <div className="mt-3">
-                <PlantActions plant={plant} />
+            <div key={plant.id} className="flex gap-3 rounded-2xl bg-white/8 p-4">
+              {plant.latest_photo ? (
+                <img
+                  src={`/api/uploads/${plant.id}/${plant.latest_photo.filename}`}
+                  alt={plant.name}
+                  className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl">
+                  🌿
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{plant.name}</p>
+                <p className="mt-0.5 text-sm text-cream/70">
+                  {plant.species} · {plant.location}
+                </p>
+                <div className="mt-2">
+                  <PlantActions plant={plant} />
+                </div>
               </div>
             </div>
           ))}

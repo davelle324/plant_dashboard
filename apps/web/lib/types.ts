@@ -6,6 +6,7 @@ export type Plant = {
   location: string;
   watering_interval_days: number;
   created_at: string;
+  latest_photo?: Photo;
 };
 
 export type LogEntry = {

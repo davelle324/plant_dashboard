@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { formatDate } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { useTimezone } from "@/lib/use-timezone";
 import type { LogEntry } from "@/lib/types";
 
 import { LogActions } from "./log-actions";
@@ -14,6 +15,7 @@ type Props = {
 
 export function LogEntryCard({ log }: Props) {
   const [editing, setEditing] = useState(false);
+  const tz = useTimezone();
 
   if (editing) {
     return (
@@ -44,7 +46,7 @@ export function LogEntryCard({ log }: Props) {
           <LogActions log={log} />
         </div>
       </div>
-      <p className="mt-2 text-cream/70">{formatDate(log.created_at)}</p>
+      <p className="mt-2 text-sm text-cream/70">{tz ? formatDateTime(log.created_at, tz) : formatDateTime(log.created_at)}</p>
     </div>
   );
 }

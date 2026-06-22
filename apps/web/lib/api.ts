@@ -13,6 +13,7 @@ export type LogInput = {
   plant_id: number;
   type: LogEntry["type"];
   note?: string;
+  created_at?: string;
 };
 
 type Reminder = {

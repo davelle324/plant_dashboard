@@ -2,63 +2,90 @@
 
 ## Current State
 
-- Split-stack starter is in place.
-- Frontend runs with Clerk when real keys are present, and falls back to no-auth local mode when `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is empty.
-- Frontend calls a same-origin `/api/...` proxy (all `lib/api.ts` paths are prefixed with `/api/`), which forwards requests to the FastAPI backend.
-- The proxy (`app/api/[...path]/route.ts`) detects no-auth mode via `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and injects `"dev-user"` as `x-clerk-user-id` when Clerk is absent. It reads the body as `text()` and forwards only `x-clerk-user-id`, `content-type`, and `x-clerk-user-email` headers directly to the backend via a plain `fetch`.
-- Backend exposes plant CRUD, log CRUD, reminders, and a phase-2 AI placeholder.
-- Backend user scoping uses the `x-clerk-user-id` header; a user row is auto-created on first request.
-- Docker Compose brings up Postgres, API, and web together.
-- CRUD mutations are wired through the UI for plants and logs (create, edit, delete).
-- FastAPI CORS is enabled for `http://localhost:3000` and `http://127.0.0.1:3000` by default.
-- Full test suite in `apps/api/tests/test_main.py` — 25 tests covering auth, CRUD, user isolation, reminders, CORS. Run with `uv run pytest tests/test_main.py -v`.
-- **Toasts**: `sonner` is installed. All CRUD mutations (plant create/edit/delete, log create/edit/delete) show `toast.success` / `toast.error`. `<Toaster>` is mounted in `app/layout.tsx`.
-- **Date formatting**: `lib/format.ts` exports `formatDate(iso)` — used in log cards, log history page, and plant detail page.
-- **Health indicator**: Plant detail page computes Healthy / Due soon / Overdue from `daysSinceLastCare` vs `plant.watering_interval_days` (75% threshold for "due soon").
-- The homepage (`/`) is now a live async server component. It fetches real plants and reminders (catches auth errors gracefully so the page never breaks for signed-out users). Stats show real counts; "At a glance" shows the user's first 3 plants with an overdue/on-track badge. Empty state links to the dashboard.
+Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAPI + SQLAlchemy. Both run in Docker or locally via shell scripts.
 
-## Known Issues / Recent Fixes
+### Authentication
+- Clerk auth when `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is set; otherwise no-auth local mode (`dev-user`).
+- Proxy at `app/api/[...path]/route.ts` injects `x-clerk-user-id` and forwards to FastAPI.
+- Backend auto-creates a user row on first request.
 
-- **Path prefix bug** (fixed): `lib/api.ts` was calling `/plants` instead of `/api/plants`, missing the proxy entirely.
-- **No-auth proxy bug** (fixed): Proxy was calling `auth()` unconditionally; now skips it when `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is unset.
-- **Header forwarding + body encoding bug** (fixed): Proxy now does a direct `fetch` with only the necessary headers and a plain `text()` body — removing the `backendRequest` abstraction from the write path eliminated the encoding issues.
-- **Schema migration**: `users` table must have `clerk_user_id` column. If Postgres volume predates this column, run `docker compose down -v && docker compose up --build` to recreate.
+### Pages
+| Route | Description |
+|-------|-------------|
+| `/` | Homepage — live stats, "Needs attention" panel with quick-water buttons, feature highlights, "At a glance" plant list with photo thumbnails |
+| `/dashboard` | All plants (with photo thumbnails), health donut chart, reminder queue, add-plant form |
+| `/plant/[id]` | Plant detail — health summary, edit form, care history with log form, care activity chart, photo gallery, AI chat |
+| `/settings` | Account info + live API status, plant defaults (localStorage), display timezone (localStorage), AI config info, notifications placeholder |
 
-## Next Steps
+### Backend endpoints
+- `GET/POST/PUT/DELETE /plants` — plant CRUD; `GET /plants` includes `latest_photo` per plant (single grouped subquery, no N+1)
+- `GET /plants/{id}/logs`, `POST /logs`, `PUT/DELETE /logs/{id}` — log CRUD; create/update accept optional `created_at` for backdated entries
+- `GET /reminders` — overdue plants with days-since-care and due-in-days
+- `GET/POST /plants/{id}/photos`, `DELETE /photos/{id}` — photo upload/delete; files stored at `$UPLOAD_DIR/{plant_id}/{uuid}.ext`; served via FastAPI StaticFiles at `/uploads/...`
+- `POST /ai/ask` — sends plant + care history context to Ollama; returns 503 with helpful message if `OLLAMA_URL` is unset/unreachable
+- `GET /health` — `{"status":"ok"}`
 
-- Settings page (`/settings`) is live. Shows account info (Clerk user email/ID in auth mode, "dev-user" label in local mode), plant defaults section (UI only, not yet persisted), and clearly-labeled placeholders for notifications and AI. Linked from the dashboard header.
-- **Playwright e2e tests** live in `apps/web/e2e/`. Run with `cd apps/web && npm run test:e2e` (requires the full Docker stack running). 4 suites: homepage, dashboard (plant CRUD), plant-detail (log CRUD, date formatting), settings. Use `npm run test:e2e:ui` for the interactive Playwright UI.
-- Decide whether the backend should enforce a stronger trust boundary than header-based Clerk identity forwarding.
-- If Clerk auth is needed locally, replace the empty compose placeholders with real `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` values.
-- **AI assistant** (live): `POST /ai/ask` calls Ollama at `$OLLAMA_URL` with the plant's care history as context. Model is `$AI_MODEL` (default `qwen2.5:0.5b`). Model is auto-pulled on first boot (stored in `ollama_data` volume, so subsequent restarts skip the download). The `AiChat` component lives in `components/ai-chat.tsx` and is wired into the plant detail page.
-- **Photo uploads** (live): `POST /plants/{id}/photos` accepts multipart file upload, stores to a Docker volume at `$UPLOAD_DIR` (default `/uploads`), serves files via FastAPI `StaticFiles` at `/uploads/{plant_id}/{filename}`. Frontend `PhotoGallery` component (`components/photo-gallery.tsx`) handles upload, grid display, and delete. Proxy correctly forwards multipart bodies as `arrayBuffer()`.
-- Embeddings/RAG for plant history semantic search — Phase 2 stretch goal, not started.
+### Key frontend components
+| Component | Notes |
+|-----------|-------|
+| `PlantForm` | Reads plant defaults from `localStorage` on mount when creating |
+| `LogForm` | `datetime-local` picker defaulting to now; sends `created_at` as UTC ISO string |
+| `LogEntryCard` | Client component; reads `preferredTimezone` from localStorage for display |
+| `PhotoGallery` | Optimistic local state for upload/delete; calls `router.refresh()` after changes |
+| `CareChart` | 12-week stacked bar (watering/fertilizing/pruning/notes) via Recharts |
+| `HealthChart` | Donut showing healthy vs overdue plant count |
+| `QuickWaterButton` | Homepage — logs a watering immediately, flips to "Watered ✓" |
+| `ApiStatus` | Settings page — pings `/api/health` client-side, shows green/red dot |
+| `SettingsDefaults` | Saves default location + watering interval to `localStorage` |
+| `SettingsTimezone` | Saves preferred IANA timezone to `localStorage` |
+
+## Known Issues
+
+- **Deleted photo thumbnail stale until navigation**: When the most-recent photo is deleted from `PhotoGallery`, the thumbnail shown in dashboard/homepage "All plants" and "At a glance" plant cards persists until the user navigates away and the server re-renders. Fix: add `router.refresh()` call after a successful deletion in `PhotoGallery` so Next.js invalidates the cached server render and re-fetches `list_plants` with the updated `latest_photo`. This was in-progress and interrupted.
 
 ## Running the App
 
-Two convenience scripts live in the project root:
-
 ```bash
-./run-docker.sh   # Full stack in Docker (Postgres + API + Web + Ollama)
-./run-local.sh    # Local processes, SQLite, no Docker needed
+./run-docker.sh    # Docker: Postgres + FastAPI + Next.js + Ollama
+./run-local.sh     # Local: SQLite + native processes, Ollama optional
+source activate_env.sh  # Activate Python venv (creates it via uv sync if missing)
 ```
 
-**Local prerequisites:** `uv` (https://docs.astral.sh/uv/getting-started/installation/) and `node`/`npm`. Ollama is optional — AI assistant is gracefully disabled if not installed.
+Local prerequisites: `uv`, `node`, `npm`. Ollama optional (AI disabled gracefully if absent).
 
-**Switching between Docker and local** clears the Next.js cache automatically (Docker writes it as root; the local script removes `.next` and `tmp` before starting).
+Switching between Docker and local: the local script wipes `.next` and `tmp` first (Docker writes them as root, causing EACCES on local runs).
+
+## Running Tests
+
+```bash
+# API (36 tests)
+cd apps/api && uv run pytest tests/test_main.py -v
+
+# E2E (requires full stack running)
+cd apps/web && npm run test:e2e
+cd apps/web && npm run test:e2e:ui   # interactive UI
+```
 
 ## What's Committed vs Ignored
 
-- `uv.lock` — committed (application lockfile, ensures reproducible installs, same as `package-lock.json`)
-- `.venv/` — gitignored (Python virtual env created by `uv`)
-- `uploads/` — gitignored (local file uploads; in Docker these live in a named volume)
-- `*.db` — gitignored (SQLite dev database)
-- `.env` / `.env.local` — gitignored (secrets); use `.env.example` as the template
+- `uv.lock` — committed (reproducible installs, like `package-lock.json`)
+- `.venv/` — gitignored
+- `uploads/` — gitignored (Docker uses a named volume)
+- `*.db` — gitignored
+- `.env` / `.env.local` / `.env.*.local` — gitignored; use `.env.example` as template
 
-## Notes
+## Architecture Notes
 
-- `DATABASE_URL` supports both SQLite fallback (`sqlite:///./plants.db`) and Postgres in compose.
-- Run API tests: `cd apps/api && uv run pytest tests/test_main.py -v`
-- The `API_INTERNAL_URL` env var must be `http://localhost:8000` when running outside Docker (the local script sets this automatically; the Docker compose sets `http://api:8000`).
-- The homepage (`/`) fetches live data but wraps it in a try/catch — if the user isn't authenticated or the backend is down, all stats show 0 and "At a glance" shows the empty state.
-- AI assistant returns a clean 503 with an install message if `OLLAMA_URL` is unset or Ollama is unreachable.
+- `DATABASE_URL` supports both Postgres (`postgresql+psycopg://...`) and SQLite (`sqlite:///./plants.db`)
+- `API_INTERNAL_URL` must be `http://localhost:8000` locally; Docker compose sets it to `http://api:8000`
+- Photo files are served by FastAPI `StaticFiles` mounted at `/uploads`; in Docker this is a named volume (`uploads_data`)
+- Ollama model is auto-pulled on first Docker boot (stored in `ollama_data` volume); `run-local.sh` also auto-pulls if Ollama is installed
+- Backend trust boundary: `x-clerk-user-id` header is trusted without cryptographic verification — acceptable for local dev, should be hardened before public deployment
+
+## Stretch Goals / Not Started
+
+- RAG / embeddings for semantic search over plant history (`nomic-embed-text` + ChromaDB)
+- Email notifications via SendGrid
+- Vision AI (attach plant photos to Ollama multimodal model like `llava` or `moondream`)
+- Background cron for reminders (currently computed on-demand; plan calls for Celery + Redis)
+- Deployment: Vercel (web) + Render/Fly.io (API) + Neon (Postgres)

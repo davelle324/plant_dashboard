@@ -1,4 +1,4 @@
-# Plant Care SaaS
+# Plant Care Dashboard
 
 A full-stack plant care tracker with AI assistance and photo uploads.
 
@@ -7,19 +7,21 @@ A full-stack plant care tracker with AI assistance and photo uploads.
 
 ## Features
 
-- Plant and care log CRUD with user isolation (multi-tenant)
-- Watering reminders based on per-plant intervals
-- Dashboard with health overview chart and reminder queue
-- Per-plant care activity chart (12-week stacked bar)
-- Photo uploads with growth history gallery
-- AI assistant powered by Ollama (uses plant history as context)
-- No-auth local dev mode — no Clerk keys required
+- Plant and care log CRUD with per-user data isolation (multi-tenant)
+- Backdated log entries — pick any date and time when adding or editing a log
+- Watering reminders; overdue plants surfaced on dashboard and homepage
+- Dashboard with health donut chart and reminder queue
+- Per-plant care activity chart (12-week stacked bar by log type)
+- Photo uploads with growth history gallery; latest photo shown as thumbnail in plant lists
+- AI assistant powered by Ollama (uses plant history as context, runs locally)
+- Settings: display timezone, plant-form defaults (saved in browser), live API status
+- No-auth local dev mode — no Clerk keys required to run
 
 ## Running locally
 
-Two scripts in the project root handle the two modes:
+Two scripts in the project root cover both modes:
 
-### Docker (recommended first run)
+### Docker (recommended)
 
 Requires Docker Desktop or Docker Engine.
 
@@ -37,15 +39,19 @@ docker compose down -v && ./run-docker.sh
 
 ### Local processes
 
-Requires `uv` and `node`/`npm`. No Docker needed — uses SQLite.
+Requires [`uv`](https://docs.astral.sh/uv/getting-started/installation/) and `node`/`npm`. No Docker needed — uses SQLite.
 
 ```bash
 ./run-local.sh
 ```
 
-Ollama is optional. If installed and running, the AI assistant works. If not, the AI endpoint returns a clear 503 with install instructions.
+Ollama is optional. If installed, the AI assistant works automatically. If not, the AI endpoint returns a clear 503 with install instructions.
 
-Install `uv`: https://docs.astral.sh/uv/getting-started/installation/
+To activate the Python virtual environment for manual API work:
+
+```bash
+source activate_env.sh   # creates .venv via uv sync if it doesn't exist yet
+```
 
 ### URLs
 
@@ -57,7 +63,7 @@ Install `uv`: https://docs.astral.sh/uv/getting-started/installation/
 
 ## Authentication
 
-Clerk is supported but optional. Without Clerk keys, the app runs in **no-auth local mode** — all requests are scoped to a single `dev-user`. To enable Clerk, set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/web/.env.local`.
+Clerk is supported but optional. Without Clerk keys the app runs in **no-auth local mode** — all requests are scoped to a single `dev-user`. To enable Clerk, set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/web/.env.local`.
 
 ## Environment
 
@@ -85,7 +91,7 @@ cd apps/api
 uv run pytest tests/test_main.py -v
 ```
 
-36 tests covering: auth, plant CRUD, user isolation, log CRUD, reminders, photos, AI endpoint, health check, CORS.
+36 tests covering: auth, plant CRUD, user isolation, log CRUD, reminders, photos (upload/delete/cascade), AI endpoint, health check, CORS.
 
 ## E2E tests
 
@@ -93,8 +99,8 @@ Playwright tests live in `apps/web/e2e/`. Requires the full stack running.
 
 ```bash
 cd apps/web
-npm run test:e2e          # headless
-npm run test:e2e:ui       # Playwright UI
+npm run test:e2e        # headless
+npm run test:e2e:ui     # Playwright UI
 ```
 
 ## Tech stack

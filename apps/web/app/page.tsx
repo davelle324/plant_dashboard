@@ -195,18 +195,25 @@ export default async function HomePage() {
                   <Link
                     key={plant.id}
                     href={`/plant/${plant.id}`}
-                    className="flex items-center justify-between gap-4 rounded-2xl bg-cream p-4 transition hover:bg-cream/60"
+                    className="flex items-center gap-3 rounded-2xl bg-cream p-3 transition hover:bg-cream/60"
                   >
-                    <div className="min-w-0">
+                    {plant.latest_photo ? (
+                      <img
+                        src={`/api/uploads/${plant.id}/${plant.latest_photo.filename}`}
+                        alt={plant.name}
+                        className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/5 text-xl">
+                        🌿
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium text-ink">{plant.name}</p>
-                      <p className="mt-0.5 text-sm text-slate-500">
-                        {plant.species} · {plant.location}
-                      </p>
+                      <p className="mt-0.5 text-sm text-slate-500">{plant.species}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-                      reminder
-                        ? "bg-rose-100 text-rose-700"
-                        : "bg-emerald-100 text-emerald-700"
+                      reminder ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
                     }`}>
                       {reminder
                         ? reminder.due_in_days <= 0 ? "Overdue" : `Due in ${reminder.due_in_days}d`

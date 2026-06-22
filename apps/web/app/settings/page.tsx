@@ -3,6 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { ApiStatus } from "@/components/api-status";
 import { SettingsDefaults } from "@/components/settings-defaults";
+import { SettingsTimezone } from "@/components/settings-timezone";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const aiModel = process.env.AI_MODEL ?? "qwen2.5:0.5b";
@@ -87,6 +88,15 @@ export default async function SettingsPage() {
             Saved in your browser. Pre-fill the add-plant form automatically.
           </p>
           <SettingsDefaults />
+        </section>
+
+        {/* ── Timezone ─────────────────────────────────────────────────── */}
+        <section className="rounded-[2rem] bg-white/75 p-6 shadow-soft">
+          <h2 className="text-lg font-semibold text-ink">Timezone</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Dates and times in the care log will display in this timezone.
+          </p>
+          <SettingsTimezone />
         </section>
 
         {/* ── AI assistant ─────────────────────────────────────────────── */}
