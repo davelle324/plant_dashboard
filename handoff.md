@@ -13,8 +13,9 @@ Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAP
 | Route | Description |
 |-------|-------------|
 | `/` | Homepage — live stats, "Needs attention" panel with quick-water buttons, feature highlights, "At a glance" plant list with photo thumbnails |
-| `/dashboard` | All plants (with photo thumbnails), health donut chart, reminder queue, add-plant form |
-| `/plant/[id]` | Plant detail — health summary, edit form, care history with log form, care activity chart, photo gallery, AI chat |
+| `/dashboard` | All plants (with photo thumbnails), health donut chart, reminder queue, add-plant form. Links to Analytics and Settings. |
+| `/analytics` | Care events per week (bar chart), care type breakdown (donut), most-active / most-neglected highlights, per-plant stats table |
+| `/plant/[id]` | Plant detail — health summary, edit form, care history with log form (datetime picker), 12-week care activity chart, photo gallery, AI chat |
 | `/settings` | Account info + live API status, plant defaults (localStorage), display timezone (localStorage), AI config info, notifications placeholder |
 
 ### Backend endpoints
@@ -82,10 +83,27 @@ cd apps/web && npm run test:e2e:ui   # interactive UI
 - Ollama model is auto-pulled on first Docker boot (stored in `ollama_data` volume); `run-local.sh` also auto-pulls if Ollama is installed
 - Backend trust boundary: `x-clerk-user-id` header is trusted without cryptographic verification — acceptable for local dev, should be hardened before public deployment
 
-## Stretch Goals / Not Started
+## Potential Next Steps
 
-- RAG / embeddings for semantic search over plant history (`nomic-embed-text` + ChromaDB)
-- Email notifications via SendGrid
-- Vision AI (attach plant photos to Ollama multimodal model like `llava` or `moondream`)
-- Background cron for reminders (currently computed on-demand; plan calls for Celery + Redis)
-- Deployment: Vercel (web) + Render/Fly.io (API) + Neon (Postgres)
+Ordered roughly by impact / effort ratio:
+
+### High value
+- **Deployment** — Vercel (web) + Render or Fly.io (API) + Neon (Postgres). The app is MVP-complete; deployment turns it into a real product. Need to set real Clerk keys, `DATABASE_URL`, and `UPLOAD_DIR` (or swap to S3 for uploads).
+- **Email reminders** — Daily/weekly digest of overdue plants via SendGrid or Resend. The reminder data already exists at `GET /reminders`; just needs a cron that calls it and sends emails. Could be a Vercel Cron job or a GitHub Action calling a `POST /reminders/send` endpoint.
+- **Search and filter on dashboard** — Client-side filter by plant name, location, or health status. Useful once plant count grows past ~10.
+
+### Medium effort, good differentiators
+- **Vision AI** — Swap `qwen2.5:0.5b` for `moondream` (~1.7 GB) or `llava:7b` (~4 GB) in `docker-compose.yml` and `run-local.sh`. In `main.py` `/ai/ask`, read the plant's latest photo file, base64-encode it, and add it to the Ollama `generate` payload as `"images": [<base64>]`. Frontend doesn't change.
+- **Plant health score** — 0–100 score computed from watering adherence over the last 30 days. Display as a progress ring on plant cards. Replace the binary Healthy/Overdue indicator.
+- **Trends on analytics** — Per-plant line chart of days-between-waterings over time; shows whether care is improving. Data is already computed in `plant_stats`; just needs a chart.
+
+### Smaller polish
+- **Mobile layout** — Test and improve the grid/card layouts at phone widths. Some sections may need single-column stacking.
+- **Bulk actions** — Select multiple plants on the dashboard, mark all as watered at once.
+- **Pagination / infinite scroll** on dashboard for large collections.
+- **Dark mode** — Tailwind `dark:` variants throughout; store preference in localStorage.
+
+### Larger / Phase 2
+- **RAG / embeddings** — Semantic search over plant history using `nomic-embed-text` + ChromaDB or FAISS. Lets the AI answer questions like "has this plant ever had yellow leaves?"
+- **Background cron for reminders** — Currently reminders are computed on-demand. For email/push, a scheduled job (Celery + Redis, or a simple cron endpoint) is needed.
+- **PWA / offline support** — Service worker + manifest so the app installs on mobile and works offline for viewing cached data.

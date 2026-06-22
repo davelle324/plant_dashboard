@@ -542,3 +542,86 @@ def test_ai_ask_requires_auth(tmp_path):
     with TestClient(app) as client:
         r = client.post("/ai/ask", json={"plant_id": 1, "question": "Hello?"})
     assert r.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+
+def test_analytics_requires_auth(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        r = client.get("/analytics")
+    assert r.status_code == 401
+
+
+def test_analytics_empty(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        r = client.get("/analytics", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total_plants"] == 0
+    assert body["total_logs"] == 0
+    assert body["total_photos"] == 0
+    assert body["plant_stats"] == []
+    assert len(body["activity_by_week"]) == 12
+    assert all(w["count"] == 0 for w in body["activity_by_week"])
+
+
+def test_analytics_counts(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        client.post("/logs", json={"plant_id": plant_id, "type": "watering"}, headers=AUTH_HEADERS)
+        client.post("/logs", json={"plant_id": plant_id, "type": "fertilizing"}, headers=AUTH_HEADERS)
+        _upload_photo(client, plant_id, AUTH_HEADERS)
+        r = client.get("/analytics", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total_plants"] == 1
+    assert body["total_logs"] == 2
+    assert body["total_photos"] == 1
+    assert body["logs_by_type"]["watering"] == 1
+    assert body["logs_by_type"]["fertilizing"] == 1
+    assert len(body["plant_stats"]) == 1
+    assert body["plant_stats"][0]["plant_name"] == "Basil"
+    assert body["plant_stats"][0]["watering_count"] == 1
+
+
+def test_analytics_isolated_per_user(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        client.post("/logs", json={"plant_id": plant_id, "type": "watering"}, headers=AUTH_HEADERS)
+        _make_plant(client, OTHER_HEADERS)
+        r_user = client.get("/analytics", headers=AUTH_HEADERS)
+        r_other = client.get("/analytics", headers=OTHER_HEADERS)
+    assert r_user.json()["total_plants"] == 1
+    assert r_other.json()["total_plants"] == 1
+    assert r_user.json()["total_logs"] == 1
+    assert r_other.json()["total_logs"] == 0
+
+
+def test_analytics_avg_days_between_waterings(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    app, db_module, main_module = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+
+    # Insert waterings 7 days apart directly
+    now = datetime.now(timezone.utc)
+    db = db_module.SessionLocal()
+    try:
+        db.add(main_module.Log(plant_id=plant_id, type="watering", created_at=now - timedelta(days=14)))
+        db.add(main_module.Log(plant_id=plant_id, type="watering", created_at=now - timedelta(days=7)))
+        db.add(main_module.Log(plant_id=plant_id, type="watering", created_at=now))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(app) as client:
+        r = client.get("/analytics", headers=AUTH_HEADERS)
+    stat = r.json()["plant_stats"][0]
+    assert stat["watering_count"] == 3
+    assert stat["avg_days_between_waterings"] == 7.0

@@ -24,3 +24,21 @@ export type Photo = {
   created_at: string;
 };
 
+export type PlantStat = {
+  plant_id: number;
+  plant_name: string;
+  total_logs: number;
+  watering_count: number;
+  days_since_last_watered: number | null;
+  avg_days_between_waterings: number | null;
+};
+
+export type Analytics = {
+  total_plants: number;
+  total_logs: number;
+  total_photos: number;
+  logs_by_type: Record<string, number>;
+  activity_by_week: { week: string; count: number }[];
+  plant_stats: PlantStat[];
+};
+

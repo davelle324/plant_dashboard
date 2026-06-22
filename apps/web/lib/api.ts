@@ -1,4 +1,4 @@
-import type { LogEntry, Photo, Plant } from "./types";
+import type { Analytics, LogEntry, Photo, Plant } from "./types";
 
 const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
 
@@ -122,6 +122,10 @@ export function uploadPhoto(plantId: number, file: File) {
 
 export function deletePhoto(photoId: number) {
   return request<void>(`/api/photos/${photoId}`, { method: "DELETE" });
+}
+
+export function getAnalytics() {
+  return request<Analytics>("/api/analytics");
 }
 
 // AI

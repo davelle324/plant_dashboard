@@ -17,6 +17,9 @@ export default async function DashboardPage() {
           <h1 className="mt-2 text-3xl font-semibold text-ink">Your plants, health, and reminders</h1>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/analytics" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
+            Analytics
+          </Link>
           <Link href="/settings" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
             Settings
           </Link>

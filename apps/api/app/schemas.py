@@ -77,3 +77,26 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     answer: str
+
+
+class WeeklyCount(BaseModel):
+    week: str
+    count: int
+
+
+class PlantStat(BaseModel):
+    plant_id: int
+    plant_name: str
+    total_logs: int
+    watering_count: int
+    days_since_last_watered: int | None
+    avg_days_between_waterings: float | None
+
+
+class AnalyticsRead(BaseModel):
+    total_plants: int
+    total_logs: int
+    total_photos: int
+    logs_by_type: dict[str, int]
+    activity_by_week: list[WeeklyCount]
+    plant_stats: list[PlantStat]

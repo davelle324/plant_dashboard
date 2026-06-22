@@ -5,7 +5,7 @@ import shutil
 import time
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timezone  # noqa: F401 – timezone used in create_log/update_log
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from .db import Base, engine, get_db
 from .models import Log, Photo, Plant, User
 from .schemas import (
+    AnalyticsRead,
     AskRequest,
     AskResponse,
     LogCreate,
@@ -27,7 +28,9 @@ from .schemas import (
     PlantCreate,
     PlantRead,
     PlantUpdate,
+    PlantStat,
     ReminderRead,
+    WeeklyCount,
 )
 
 app = FastAPI(title="Plant Care API")
@@ -257,6 +260,80 @@ def delete_photo(photo_id: int, db: Session = Depends(get_db), current_user: Use
     path.unlink(missing_ok=True)
     db.delete(photo)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+
+def _utc(dt: datetime) -> datetime:
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+@app.get("/analytics", response_model=AnalyticsRead)
+def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AnalyticsRead:
+    plants = list(db.scalars(select(Plant).where(Plant.user_id == current_user.id)).all())
+    plant_ids = [p.id for p in plants]
+
+    all_logs: list[Log] = []
+    photos_count = 0
+    if plant_ids:
+        all_logs = list(db.scalars(select(Log).where(Log.plant_id.in_(plant_ids))).all())
+        photos_count = db.scalar(select(func.count(Photo.id)).where(Photo.plant_id.in_(plant_ids))) or 0
+
+    # Counts by log type
+    logs_by_type: dict[str, int] = {"watering": 0, "fertilizing": 0, "pruning": 0, "notes": 0}
+    for log in all_logs:
+        if log.type in logs_by_type:
+            logs_by_type[log.type] += 1
+
+    # Care events per week for the last 12 weeks
+    now = datetime.now(timezone.utc)
+    activity_by_week: list[WeeklyCount] = []
+    for i in range(11, -1, -1):
+        week_start = (now - timedelta(weeks=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start -= timedelta(days=week_start.weekday())  # back to Monday
+        week_end = week_start + timedelta(weeks=1)
+        count = sum(1 for l in all_logs if week_start <= _utc(l.created_at) < week_end)
+        label = week_start.strftime("%b ") + str(week_start.day)
+        activity_by_week.append(WeeklyCount(week=label, count=count))
+
+    # Per-plant stats
+    logs_by_plant: dict[int, list[Log]] = {p.id: [] for p in plants}
+    for log in all_logs:
+        logs_by_plant[log.plant_id].append(log)
+
+    plant_stats: list[PlantStat] = []
+    for plant in plants:
+        plant_logs = logs_by_plant[plant.id]
+        waterings = sorted(
+            (l for l in plant_logs if l.type == "watering"),
+            key=lambda l: l.created_at,
+        )
+        days_since = (now - _utc(waterings[-1].created_at)).days if waterings else None
+        avg_days: float | None = None
+        if len(waterings) >= 2:
+            gaps = [(_utc(waterings[j].created_at) - _utc(waterings[j - 1].created_at)).days for j in range(1, len(waterings))]
+            avg_days = round(sum(gaps) / len(gaps), 1)
+        plant_stats.append(PlantStat(
+            plant_id=plant.id,
+            plant_name=plant.name,
+            total_logs=len(plant_logs),
+            watering_count=len(waterings),
+            days_since_last_watered=days_since,
+            avg_days_between_waterings=avg_days,
+        ))
+
+    plant_stats.sort(key=lambda p: p.total_logs, reverse=True)
+
+    return AnalyticsRead(
+        total_plants=len(plants),
+        total_logs=len(all_logs),
+        total_photos=photos_count,
+        logs_by_type=logs_by_type,
+        activity_by_week=activity_by_week,
+        plant_stats=plant_stats,
+    )
 
 
 # ---------------------------------------------------------------------------
