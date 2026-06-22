@@ -1,5 +1,8 @@
+import Link from "next/link";
+
 import { getPlantLogs } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type PlantLogsPageProps = {
   params: { id: string };
@@ -11,8 +14,17 @@ export default async function PlantLogsPage({ params }: PlantLogsPageProps) {
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-8 md:px-10">
-      <p className="text-sm uppercase tracking-[0.3em] text-moss">Logs</p>
-      <h1 className="mt-2 text-3xl font-semibold text-ink">Plant #{id} history</h1>
+      <div className="flex items-center justify-between">
+        <Link
+          href={`/plant/${id}`}
+          className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-sm font-medium text-ink transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-cream dark:hover:bg-white/10"
+        >
+          ← Plant detail
+        </Link>
+        <ThemeToggle />
+      </div>
+      <p className="mt-4 text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Logs</p>
+      <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Plant #{id} history</h1>
       <div className="mt-8 rounded-[2rem] bg-white/75 p-6 shadow-soft">
         <div className="space-y-4">
           {logs.map((entry) => (

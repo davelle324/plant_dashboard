@@ -30,6 +30,7 @@ from .schemas import (
     PlantUpdate,
     PlantStat,
     ReminderRead,
+    WateringInterval,
     WeeklyCount,
 )
 
@@ -315,6 +316,12 @@ def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(ge
         if len(waterings) >= 2:
             gaps = [(_utc(waterings[j].created_at) - _utc(waterings[j - 1].created_at)).days for j in range(1, len(waterings))]
             avg_days = round(sum(gaps) / len(gaps), 1)
+        watering_intervals: list[WateringInterval] = []
+        for j in range(1, len(waterings)):
+            gap = (_utc(waterings[j].created_at) - _utc(waterings[j - 1].created_at)).days
+            date_str = _utc(waterings[j].created_at).strftime("%Y-%m-%d")
+            watering_intervals.append(WateringInterval(date=date_str, days=gap))
+
         plant_stats.append(PlantStat(
             plant_id=plant.id,
             plant_name=plant.name,
@@ -322,6 +329,7 @@ def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(ge
             watering_count=len(waterings),
             days_since_last_watered=days_since,
             avg_days_between_waterings=avg_days,
+            watering_intervals=watering_intervals,
         ))
 
     plant_stats.sort(key=lambda p: p.total_logs, reverse=True)
@@ -368,8 +376,13 @@ def reminder_rows(db: Session, user_id: int) -> list[ReminderRead]:
 
 
 @app.get("/reminders", response_model=list[ReminderRead])
-def get_reminders(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[ReminderRead]:
-    return [row for row in reminder_rows(db, current_user.id) if row.overdue]
+def get_reminders(
+    all: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ReminderRead]:
+    rows = reminder_rows(db, current_user.id)
+    return rows if all else [row for row in rows if row.overdue]
 
 
 # ---------------------------------------------------------------------------

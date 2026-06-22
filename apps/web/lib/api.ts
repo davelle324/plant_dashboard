@@ -1,4 +1,4 @@
-import type { Analytics, LogEntry, Photo, Plant } from "./types";
+import type { Analytics, LogEntry, Photo, Plant, Reminder } from "./types";
 
 const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
 
@@ -14,14 +14,6 @@ export type LogInput = {
   type: LogEntry["type"];
   note?: string;
   created_at?: string;
-};
-
-type Reminder = {
-  plant_id: number;
-  plant_name: string;
-  days_since_last_care: number;
-  overdue: boolean;
-  due_in_days: number;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -62,6 +54,10 @@ export function getPlantLogs(id: string) {
 
 export function getReminders() {
   return request<Reminder[]>("/api/reminders");
+}
+
+export function getAllReminders() {
+  return request<Reminder[]>("/api/reminders?all=true");
 }
 
 export function createPlant(payload: PlantInput) {

@@ -1,61 +1,66 @@
 import Link from "next/link";
 
-import { getPlants, getReminders } from "@/lib/api";
+import { getAllReminders, getPlants, getReminders } from "@/lib/api";
 import { HealthChart } from "@/components/health-chart";
-import { PlantActions } from "@/components/plant-actions";
 import { PlantForm } from "@/components/plant-form";
-import { PlantThumbnail } from "@/components/plant-thumbnail";
+import { PlantGrid } from "@/components/plant-grid";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardPage() {
-  const [plants, reminders] = await Promise.all([getPlants(), getReminders()]);
+  const [plants, reminders, allReminders] = await Promise.all([
+    getPlants(),
+    getReminders(),
+    getAllReminders(),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-6 py-8 md:px-10">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-moss">Dashboard</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">Your plants, health, and reminders</h1>
+          <p className="text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Dashboard</p>
+          <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Your plants, health, and reminders</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/analytics" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
+          <ThemeToggle />
+          <Link href="/analytics" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Analytics
           </Link>
-          <Link href="/settings" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
+          <Link href="/settings" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Settings
           </Link>
-          <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
+          <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Back home
           </Link>
         </div>
       </div>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-[2rem] bg-white/75 p-6 shadow-soft">
-          <h2 className="text-xl font-semibold text-ink">Plant health</h2>
-          <p className="mt-1 text-sm text-slate-500">Healthy vs overdue across all plants.</p>
+        <div className="rounded-[2rem] bg-white/75 p-6 shadow-soft dark:bg-white/5">
+          <h2 className="text-xl font-semibold text-ink dark:text-cream">Plant health</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Healthy vs overdue across all plants.</p>
           <div className="mt-4">
             <HealthChart total={plants.length} overdue={reminders.length} />
           </div>
         </div>
 
-        <div className="rounded-[2rem] bg-white/75 p-6 shadow-soft">
-          <h2 className="text-xl font-semibold text-ink">Reminder queue</h2>
+        <div className="rounded-[2rem] bg-white/75 p-6 shadow-soft dark:bg-white/5">
+          <h2 className="text-xl font-semibold text-ink dark:text-cream">Reminder queue</h2>
           <div className="mt-4 space-y-3">
             {reminders.map((item) => (
-              <div key={item.plant_id} className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div key={item.plant_id} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/30">
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-ink">{item.plant_name}</p>
-                  <span className="text-sm font-semibold text-soil">
+                  <p className="font-medium text-ink dark:text-cream">{item.plant_name}</p>
+                  <span className="text-sm font-semibold text-soil dark:text-amber-300">
                     {item.due_in_days <= 0 ? "Due now" : `Due in ${item.due_in_days} days`}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                   {item.days_since_last_care} days since last care
                 </p>
               </div>
             ))}
             {reminders.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-black/10 p-4 text-sm text-slate-500">
+              <p className="rounded-2xl border border-dashed border-black/10 p-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                 No overdue plants right now.
               </p>
             ) : null}
@@ -63,9 +68,9 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="mt-6 rounded-[2rem] bg-white/75 p-6 shadow-soft">
-        <h2 className="text-xl font-semibold text-ink">Add a plant</h2>
-        <p className="mt-2 text-sm text-slate-500">Create a new plant entry and start tracking its care history.</p>
+      <section className="mt-6 rounded-[2rem] bg-white/75 p-6 shadow-soft dark:bg-white/5">
+        <h2 className="text-xl font-semibold text-ink dark:text-cream">Add a plant</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Create a new plant entry and start tracking its care history.</p>
         <div className="mt-4">
           <PlantForm />
         </div>
@@ -73,34 +78,8 @@ export default async function DashboardPage() {
 
       <section className="mt-6 rounded-[2rem] bg-ink p-6 text-cream shadow-soft">
         <h2 className="text-xl font-semibold">All plants</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {plants.map((plant) => (
-            <div key={plant.id} className="flex gap-3 rounded-2xl bg-white/8 p-4">
-              {plant.latest_photo ? (
-                <PlantThumbnail
-                  src={`/api/uploads/${plant.id}/${plant.latest_photo.filename}`}
-                  alt={plant.name}
-                  className="h-16 w-16 shrink-0 rounded-xl object-cover"
-                />
-              ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl">
-                  🌿
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{plant.name}</p>
-                <p className="mt-0.5 text-sm text-cream/70">
-                  {plant.species} · {plant.location}
-                </p>
-                <div className="mt-2">
-                  <PlantActions plant={plant} />
-                </div>
-              </div>
-            </div>
-          ))}
-          {plants.length === 0 ? (
-            <p className="rounded-2xl bg-white/8 p-4 text-sm text-cream/70">No plants yet.</p>
-          ) : null}
+        <div className="mt-4">
+          <PlantGrid plants={plants} reminders={allReminders} />
         </div>
       </section>
     </main>

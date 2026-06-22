@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { ApiStatus } from "@/components/api-status";
 import { SettingsDefaults } from "@/components/settings-defaults";
 import { SettingsTimezone } from "@/components/settings-timezone";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const aiModel = process.env.AI_MODEL ?? "qwen2.5:0.5b";
@@ -25,12 +26,15 @@ export default async function SettingsPage() {
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-8 md:px-10">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-moss">Settings</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">Account &amp; preferences</h1>
+          <p className="text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Settings</p>
+          <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Account &amp; preferences</h1>
         </div>
-        <Link href="/dashboard" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
-          Back to dashboard
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link href="/dashboard" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
+            Back to dashboard
+          </Link>
+        </div>
       </div>
 
       <div className="mt-8 space-y-5">

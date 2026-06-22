@@ -84,6 +84,11 @@ class WeeklyCount(BaseModel):
     count: int
 
 
+class WateringInterval(BaseModel):
+    date: str
+    days: int
+
+
 class PlantStat(BaseModel):
     plant_id: int
     plant_name: str
@@ -91,6 +96,7 @@ class PlantStat(BaseModel):
     watering_count: int
     days_since_last_watered: int | None
     avg_days_between_waterings: float | None
+    watering_intervals: list[WateringInterval] = []
 
 
 class AnalyticsRead(BaseModel):

@@ -24,6 +24,11 @@ export type Photo = {
   created_at: string;
 };
 
+export type WateringInterval = {
+  date: string;
+  days: number;
+};
+
 export type PlantStat = {
   plant_id: number;
   plant_name: string;
@@ -31,6 +36,15 @@ export type PlantStat = {
   watering_count: number;
   days_since_last_watered: number | null;
   avg_days_between_waterings: number | null;
+  watering_intervals: WateringInterval[];
+};
+
+export type Reminder = {
+  plant_id: number;
+  plant_name: string;
+  days_since_last_care: number;
+  overdue: boolean;
+  due_in_days: number;
 };
 
 export type Analytics = {

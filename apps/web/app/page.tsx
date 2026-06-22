@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { getPlants, getReminders } from "@/lib/api";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { QuickWaterButton } from "@/components/quick-water-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -65,16 +66,17 @@ export default async function HomePage() {
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-moss">Plant Care</p>
-          <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight text-ink md:text-6xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-moss dark:text-fern">Plant Care</p>
+          <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight text-ink dark:text-cream md:text-6xl">
             Keep every plant healthy, one log at a time.
           </h1>
-          <p className="mt-4 text-lg text-slate-500">
+          <p className="mt-4 text-lg text-slate-500 dark:text-slate-400">
             Track watering schedules, get reminders, ask the AI assistant, and watch your plants grow through photos.
           </p>
         </div>
 
-        <div className="flex shrink-0 items-start pt-1">
+        <div className="flex shrink-0 items-start gap-3 pt-1">
+          <ThemeToggle />
           {clerkPublishableKey ? (
             <>
               <SignedIn>
@@ -106,28 +108,28 @@ export default async function HomePage() {
 
       {/* ── Stats ───────────────────────────────────────────────────────── */}
       <section className="grid gap-4 sm:grid-cols-3">
-        <article className="rounded-3xl border border-black/5 bg-white/70 p-6 shadow-soft backdrop-blur">
-          <p className="text-sm text-slate-500">Plants tracked</p>
-          <p className="mt-3 text-4xl font-semibold text-ink">{plants.length}</p>
+        <article className="rounded-3xl border border-black/5 bg-white/70 p-6 shadow-soft backdrop-blur dark:border-white/10 dark:bg-white/5">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Plants tracked</p>
+          <p className="mt-3 text-4xl font-semibold text-ink dark:text-cream">{plants.length}</p>
         </article>
         <article className={`rounded-3xl border p-6 shadow-soft backdrop-blur ${
           reminders.length > 0
-            ? "border-rose-200 bg-rose-50"
-            : "border-black/5 bg-white/70"
+            ? "border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-900/30"
+            : "border-black/5 bg-white/70 dark:border-white/10 dark:bg-white/5"
         }`}>
-          <p className="text-sm text-slate-500">Overdue reminders</p>
-          <p className={`mt-3 text-4xl font-semibold ${reminders.length > 0 ? "text-rose-600" : "text-ink"}`}>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Overdue reminders</p>
+          <p className={`mt-3 text-4xl font-semibold ${reminders.length > 0 ? "text-rose-600 dark:text-rose-400" : "text-ink dark:text-cream"}`}>
             {reminders.length}
           </p>
         </article>
         <article className={`rounded-3xl border p-6 shadow-soft backdrop-blur ${
           coveragePct === 100 && plants.length > 0
-            ? "border-emerald-200 bg-emerald-50"
-            : "border-black/5 bg-white/70"
+            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/30"
+            : "border-black/5 bg-white/70 dark:border-white/10 dark:bg-white/5"
         }`}>
-          <p className="text-sm text-slate-500">Reminder coverage</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Reminder coverage</p>
           <p className={`mt-3 text-4xl font-semibold ${
-            coveragePct === 100 && plants.length > 0 ? "text-emerald-600" : "text-ink"
+            coveragePct === 100 && plants.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-ink dark:text-cream"
           }`}>
             {coveragePct}%
           </p>
@@ -136,10 +138,10 @@ export default async function HomePage() {
 
       {/* ── Needs attention ─────────────────────────────────────────────── */}
       {reminders.length > 0 && (
-        <section className="rounded-[2rem] border border-rose-200 bg-rose-50 p-6">
+        <section className="rounded-[2rem] border border-rose-200 bg-rose-50 p-6 dark:border-rose-800 dark:bg-rose-900/30">
           <div className="flex items-center gap-3">
             <span className="text-xl">💧</span>
-            <h2 className="text-lg font-semibold text-rose-900">
+            <h2 className="text-lg font-semibold text-rose-900 dark:text-rose-300">
               {reminders.length === 1
                 ? "1 plant needs watering"
                 : `${reminders.length} plants need watering`}
@@ -168,16 +170,16 @@ export default async function HomePage() {
 
       {/* ── Features ────────────────────────────────────────────────────── */}
       <section>
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-moss">What's inside</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-moss dark:text-fern">What's inside</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <article
               key={f.title}
-              className="rounded-[2rem] border border-black/5 bg-white/70 p-6 shadow-soft backdrop-blur"
+              className="rounded-[2rem] border border-black/5 bg-white/70 p-6 shadow-soft backdrop-blur dark:border-white/10 dark:bg-white/5"
             >
               <span className="text-2xl">{f.icon}</span>
-              <h3 className="mt-3 font-semibold text-ink">{f.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{f.description}</p>
+              <h3 className="mt-3 font-semibold text-ink dark:text-cream">{f.title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{f.description}</p>
             </article>
           ))}
         </div>
@@ -185,9 +187,9 @@ export default async function HomePage() {
 
       {/* ── At a glance ─────────────────────────────────────────────────── */}
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[2rem] border border-black/5 bg-white/75 p-6 shadow-soft">
-          <h2 className="text-xl font-semibold text-ink">At a glance</h2>
-          <p className="mt-1 text-sm text-slate-500">Your most recent plants.</p>
+        <div className="rounded-[2rem] border border-black/5 bg-white/75 p-6 shadow-soft dark:border-white/10 dark:bg-white/5">
+          <h2 className="text-xl font-semibold text-ink dark:text-cream">At a glance</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your most recent plants.</p>
           <div className="mt-5 space-y-3">
             {preview.length > 0 ? (
               preview.map((plant) => {
@@ -196,7 +198,7 @@ export default async function HomePage() {
                   <Link
                     key={plant.id}
                     href={`/plant/${plant.id}`}
-                    className="flex items-center gap-3 rounded-2xl bg-cream p-3 transition hover:bg-cream/60"
+                    className="flex items-center gap-3 rounded-2xl bg-cream p-3 transition hover:bg-cream/60 dark:bg-white/5 dark:hover:bg-white/10"
                   >
                     {plant.latest_photo ? (
                       <PlantThumbnail
@@ -210,11 +212,11 @@ export default async function HomePage() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink">{plant.name}</p>
-                      <p className="mt-0.5 text-sm text-slate-500">{plant.species}</p>
+                      <p className="font-medium text-ink dark:text-cream">{plant.name}</p>
+                      <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{plant.species}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-                      reminder ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                      reminder ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                     }`}>
                       {reminder
                         ? reminder.due_in_days <= 0 ? "Overdue" : `Due in ${reminder.due_in_days}d`

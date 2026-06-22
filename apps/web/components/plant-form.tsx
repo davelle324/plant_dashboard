@@ -63,14 +63,14 @@ export function PlantForm({ plant }: Props) {
     <form className="space-y-3 rounded-2xl border border-black/5 bg-white/75 p-4" onSubmit={onSubmit}>
       <div className="grid gap-3 md:grid-cols-2">
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
           placeholder="Plant name"
           value={form.name}
           onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
           required
         />
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
           placeholder="Species"
           value={form.species}
           onChange={(event) => setForm((current) => ({ ...current, species: event.target.value }))}
@@ -79,14 +79,14 @@ export function PlantForm({ plant }: Props) {
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_180px]">
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
           placeholder="Location"
           value={form.location}
           onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
           required
         />
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
           type="number"
           min={1}
           max={365}
