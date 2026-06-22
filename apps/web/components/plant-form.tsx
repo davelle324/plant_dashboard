@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { createPlant, updatePlant, type PlantInput } from "@/lib/api";
+import { getPlantDefaults } from "@/components/settings-defaults";
 import type { Plant } from "@/lib/types";
 
 type Props = {
@@ -23,14 +24,21 @@ export function PlantForm({ plant }: Props) {
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<PlantInput>(
     plant
-      ? {
-          name: plant.name,
-          species: plant.species,
-          location: plant.location,
-          watering_interval_days: plant.watering_interval_days
-        }
+      ? { name: plant.name, species: plant.species, location: plant.location, watering_interval_days: plant.watering_interval_days }
       : empty
   );
+
+  // Pre-fill from saved defaults when creating a new plant
+  useEffect(() => {
+    if (!plant) {
+      const d = getPlantDefaults();
+      setForm((prev) => ({
+        ...prev,
+        location: d.location || prev.location,
+        watering_interval_days: d.watering_interval_days,
+      }));
+    }
+  }, [plant]);
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
