@@ -26,7 +26,7 @@
 
 ## Next Steps
 
-- Settings page is currently a stub — decide what goes there (user prefs, watering defaults, etc.).
+- Settings page (`/settings`) is live. Shows account info (Clerk user email/ID in auth mode, "dev-user" label in local mode), plant defaults section (UI only, not yet persisted), and clearly-labeled placeholders for notifications and AI. Linked from the dashboard header.
 - Add frontend integration tests (e.g. Playwright) to catch proxy/auth regressions end-to-end.
 - Decide whether the backend should enforce a stronger trust boundary than header-based Clerk identity forwarding.
 - If Clerk auth is needed locally, replace the empty compose placeholders with real `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` values.

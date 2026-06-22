@@ -14,9 +14,14 @@ export default async function DashboardPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-moss">Dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold text-ink">Your plants, health, and reminders</h1>
         </div>
-        <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
-          Back home
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/settings" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
+            Settings
+          </Link>
+          <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline">
+            Back home
+          </Link>
+        </div>
       </div>
 
       <section className="mt-8 grid gap-4 md:grid-cols-3">
