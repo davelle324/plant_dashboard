@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ type Props = {
 const PHOTO_BASE = "/api/uploads";
 
 export function PhotoGallery({ plantId, initialPhotos }: Props) {
+  const router = useRouter();
   const [photos, setPhotos] = useState<Photo[]>(initialPhotos);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,6 +29,7 @@ export function PhotoGallery({ plantId, initialPhotos }: Props) {
         const photo = await uploadPhoto(plantId, file);
         setPhotos((prev) => [photo, ...prev]);
         toast.success("Photo uploaded");
+        router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Upload failed");
       }
@@ -40,6 +43,7 @@ export function PhotoGallery({ plantId, initialPhotos }: Props) {
         await deletePhoto(photo.id);
         setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
         toast.success("Photo deleted");
+        router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Delete failed");
       }

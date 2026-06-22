@@ -41,7 +41,7 @@ Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAP
 
 ## Known Issues
 
-- **Deleted photo thumbnail stale until navigation**: When the most-recent photo is deleted from `PhotoGallery`, the thumbnail shown in dashboard/homepage "All plants" and "At a glance" plant cards persists until the user navigates away and the server re-renders. Fix: add `router.refresh()` call after a successful deletion in `PhotoGallery` so Next.js invalidates the cached server render and re-fetches `list_plants` with the updated `latest_photo`. This was in-progress and interrupted.
+None currently.
 
 ## Running the App
 

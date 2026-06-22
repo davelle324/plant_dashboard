@@ -4,6 +4,7 @@ import { getPlants, getReminders } from "@/lib/api";
 import { HealthChart } from "@/components/health-chart";
 import { PlantActions } from "@/components/plant-actions";
 import { PlantForm } from "@/components/plant-form";
+import { PlantThumbnail } from "@/components/plant-thumbnail";
 
 export default async function DashboardPage() {
   const [plants, reminders] = await Promise.all([getPlants(), getReminders()]);
@@ -73,7 +74,7 @@ export default async function DashboardPage() {
           {plants.map((plant) => (
             <div key={plant.id} className="flex gap-3 rounded-2xl bg-white/8 p-4">
               {plant.latest_photo ? (
-                <img
+                <PlantThumbnail
                   src={`/api/uploads/${plant.id}/${plant.latest_photo.filename}`}
                   alt={plant.name}
                   className="h-16 w-16 shrink-0 rounded-xl object-cover"

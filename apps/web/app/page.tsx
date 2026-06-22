@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
 import { getPlants, getReminders } from "@/lib/api";
+import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { QuickWaterButton } from "@/components/quick-water-button";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -198,7 +199,7 @@ export default async function HomePage() {
                     className="flex items-center gap-3 rounded-2xl bg-cream p-3 transition hover:bg-cream/60"
                   >
                     {plant.latest_photo ? (
-                      <img
+                      <PlantThumbnail
                         src={`/api/uploads/${plant.id}/${plant.latest_photo.filename}`}
                         alt={plant.name}
                         className="h-12 w-12 shrink-0 rounded-xl object-cover"
