@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 import { getPlants, getReminders } from "@/lib/api";
-import { PlantForm } from "@/components/plant-form";
+import { HealthChart } from "@/components/health-chart";
 import { PlantActions } from "@/components/plant-actions";
+import { PlantForm } from "@/components/plant-form";
 
 export default async function DashboardPage() {
   const [plants, reminders] = await Promise.all([getPlants(), getReminders()]);
@@ -24,32 +25,15 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <section className="mt-8 grid gap-4 md:grid-cols-3">
-        <article className="rounded-3xl border border-black/5 bg-white/75 p-6 shadow-soft">
-          <p className="text-sm text-slate-500">Plants tracked</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">{plants.length}</p>
-        </article>
-        <article className="rounded-3xl border border-black/5 bg-white/75 p-6 shadow-soft">
-          <p className="text-sm text-slate-500">Overdue reminders</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">{reminders.length}</p>
-        </article>
-        <article className="rounded-3xl border border-black/5 bg-white/75 p-6 shadow-soft">
-          <p className="text-sm text-slate-500">Reminder coverage</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">
-            {plants.length === 0 ? "0%" : `${Math.round(((plants.length - reminders.length) / plants.length) * 100)}%`}
-          </p>
-        </article>
-      </section>
-
-      <section className="mt-8 rounded-[2rem] bg-white/75 p-6 shadow-soft">
-        <h2 className="text-xl font-semibold text-ink">Add a plant</h2>
-        <p className="mt-2 text-sm text-slate-500">Create a new plant entry and start tracking its care history.</p>
-        <div className="mt-4">
-          <PlantForm />
+      <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="rounded-[2rem] bg-white/75 p-6 shadow-soft">
+          <h2 className="text-xl font-semibold text-ink">Plant health</h2>
+          <p className="mt-1 text-sm text-slate-500">Healthy vs overdue across all plants.</p>
+          <div className="mt-4">
+            <HealthChart total={plants.length} overdue={reminders.length} />
+          </div>
         </div>
-      </section>
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[2rem] bg-white/75 p-6 shadow-soft">
           <h2 className="text-xl font-semibold text-ink">Reminder queue</h2>
           <div className="mt-4 space-y-3">
@@ -73,25 +57,33 @@ export default async function DashboardPage() {
             ) : null}
           </div>
         </div>
+      </section>
 
-        <div className="rounded-[2rem] bg-ink p-6 text-cream shadow-soft">
-          <h2 className="text-xl font-semibold">Recent activity</h2>
-          <div className="mt-4 space-y-3">
-            {plants.slice(0, 3).map((plant) => (
-              <div key={plant.id} className="rounded-2xl bg-white/8 p-4">
-                <p className="font-medium">{plant.name}</p>
-                <p className="mt-1 text-sm text-cream/70">
-                  {plant.species} · {plant.location}
-                </p>
-                <div className="mt-3">
-                  <PlantActions plant={plant} />
-                </div>
+      <section className="mt-6 rounded-[2rem] bg-white/75 p-6 shadow-soft">
+        <h2 className="text-xl font-semibold text-ink">Add a plant</h2>
+        <p className="mt-2 text-sm text-slate-500">Create a new plant entry and start tracking its care history.</p>
+        <div className="mt-4">
+          <PlantForm />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[2rem] bg-ink p-6 text-cream shadow-soft">
+        <h2 className="text-xl font-semibold">All plants</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {plants.map((plant) => (
+            <div key={plant.id} className="rounded-2xl bg-white/8 p-4">
+              <p className="font-medium">{plant.name}</p>
+              <p className="mt-1 text-sm text-cream/70">
+                {plant.species} · {plant.location}
+              </p>
+              <div className="mt-3">
+                <PlantActions plant={plant} />
               </div>
-            ))}
-            {plants.length === 0 ? (
-              <p className="rounded-2xl bg-white/8 p-4 text-sm text-cream/70">No plants yet.</p>
-            ) : null}
-          </div>
+            </div>
+          ))}
+          {plants.length === 0 ? (
+            <p className="rounded-2xl bg-white/8 p-4 text-sm text-cream/70">No plants yet.</p>
+          ) : null}
         </div>
       </section>
     </main>

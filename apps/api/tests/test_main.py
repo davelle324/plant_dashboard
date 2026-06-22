@@ -20,6 +20,7 @@ PLANT_PAYLOAD = {
 
 def load_app(tmp_path: Path):
     os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'test.db'}"
+    os.environ["UPLOAD_DIR"] = str(tmp_path / "uploads")
 
     import app.db as db_module
     import app.models as models_module
@@ -397,3 +398,147 @@ def test_cors_allows_local_web_origin(tmp_path):
         )
     assert r.status_code == 200
     assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+# ---------------------------------------------------------------------------
+# Photos
+# ---------------------------------------------------------------------------
+
+def _upload_photo(
+    client: TestClient,
+    plant_id: int,
+    headers: dict,
+    filename: str = "plant.jpg",
+    content: bytes = b"fake-image-bytes",
+    content_type: str = "image/jpeg",
+):
+    return client.post(
+        f"/plants/{plant_id}/photos",
+        files={"file": (filename, content, content_type)},
+        headers=headers,
+    )
+
+
+def test_list_photos_empty(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = client.get(f"/plants/{plant_id}/photos", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_upload_photo(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, AUTH_HEADERS)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["plant_id"] == plant_id
+    assert "filename" in body
+    assert "id" in body
+    assert "created_at" in body
+
+
+def test_upload_photo_appears_in_list(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        _upload_photo(client, plant_id, AUTH_HEADERS)
+        r = client.get(f"/plants/{plant_id}/photos", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+def test_upload_photo_other_user_plant_forbidden(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, OTHER_HEADERS)
+    assert r.status_code == 404
+
+
+def test_upload_photo_invalid_extension(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, AUTH_HEADERS, filename="notes.txt", content_type="text/plain")
+    assert r.status_code == 400
+
+
+def test_delete_photo(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        photo_id = _upload_photo(client, plant_id, AUTH_HEADERS).json()["id"]
+        r = client.delete(f"/photos/{photo_id}", headers=AUTH_HEADERS)
+        assert r.status_code == 204
+        photos = client.get(f"/plants/{plant_id}/photos", headers=AUTH_HEADERS).json()
+    assert photos == []
+
+
+def test_delete_photo_other_user_forbidden(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        photo_id = _upload_photo(client, plant_id, AUTH_HEADERS).json()["id"]
+        r = client.delete(f"/photos/{photo_id}", headers=OTHER_HEADERS)
+    assert r.status_code == 404
+
+
+def test_delete_plant_cascades_photos(tmp_path):
+    app, db_module, main_module = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        _upload_photo(client, plant_id, AUTH_HEADERS)
+        client.delete(f"/plants/{plant_id}", headers=AUTH_HEADERS)
+        db = db_module.SessionLocal()
+        try:
+            count = db.query(main_module.Photo).filter_by(plant_id=plant_id).count()
+        finally:
+            db.close()
+    assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# AI
+# ---------------------------------------------------------------------------
+
+def test_ai_ask_no_ollama_configured(tmp_path):
+    os.environ["OLLAMA_URL"] = ""
+    try:
+        app, _, _ = load_app(tmp_path)
+        with TestClient(app) as client:
+            plant_id = _make_plant(client, AUTH_HEADERS)
+            r = client.post(
+                "/ai/ask",
+                json={"plant_id": plant_id, "question": "How is my plant?"},
+                headers=AUTH_HEADERS,
+            )
+        assert r.status_code == 503
+        assert "not configured" in r.json()["detail"].lower()
+    finally:
+        os.environ.pop("OLLAMA_URL", None)
+
+
+def test_ai_ask_nonexistent_plant(tmp_path):
+    os.environ["OLLAMA_URL"] = "http://localhost:11434"
+    try:
+        app, _, _ = load_app(tmp_path)
+        with TestClient(app) as client:
+            r = client.post(
+                "/ai/ask",
+                json={"plant_id": 999, "question": "How is my plant?"},
+                headers=AUTH_HEADERS,
+            )
+        assert r.status_code == 404
+    finally:
+        os.environ.pop("OLLAMA_URL", None)
+
+
+def test_ai_ask_requires_auth(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        r = client.post("/ai/ask", json={"plant_id": 1, "question": "Hello?"})
+    assert r.status_code == 401

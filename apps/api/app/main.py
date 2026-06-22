@@ -304,6 +304,9 @@ def ask_ai(payload: AskRequest, db: Session = Depends(get_db), current_user: Use
         f"Answer in 2-3 sentences."
     )
 
+    if not OLLAMA_URL:
+        raise HTTPException(status_code=503, detail="AI service not configured. Install Ollama (https://ollama.com) and restart.")
+
     try:
         response = httpx.post(
             f"{OLLAMA_URL}/api/generate",

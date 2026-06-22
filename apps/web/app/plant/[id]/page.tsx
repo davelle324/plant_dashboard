@@ -1,6 +1,7 @@
 import { getPlant, getPlantLogs, getPhotos } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { AiChat } from "@/components/ai-chat";
+import { CareChart } from "@/components/care-chart";
 import { LogEntryCard } from "@/components/log-entry-card";
 import { LogForm } from "@/components/log-form";
 import { PhotoGallery } from "@/components/photo-gallery";
@@ -77,6 +78,15 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
               ))}
               {logs.length === 0 ? <p className="rounded-2xl bg-white/8 p-4 text-cream/70">No logs yet.</p> : null}
             </div>
+          </div>
+        </section>
+
+        {/* Care activity chart */}
+        <section className="rounded-[2rem] bg-white/75 p-6 shadow-soft">
+          <h2 className="text-xl font-semibold text-ink">Care activity</h2>
+          <p className="mt-1 text-sm text-slate-500">Log events per week over the last 12 weeks.</p>
+          <div className="mt-4">
+            <CareChart logs={logs} />
           </div>
         </section>
 

@@ -1,68 +1,112 @@
 # Plant Care SaaS
 
-Split-stack starter for a plant care SaaS:
+A full-stack plant care tracker with AI assistance and photo uploads.
 
-- `apps/web`: Next.js App Router frontend
-- `apps/api`: FastAPI backend
+- `apps/web` — Next.js 14 App Router frontend (TypeScript, Tailwind)
+- `apps/api` — FastAPI backend (Python, SQLAlchemy, Pydantic)
 
-The implementation includes:
+## Features
 
-- plant CRUD
-- care log CRUD
-- dashboard summary
-- reminder calculation
-- a placeholder AI route for future phase 2 work
+- Plant and care log CRUD with user isolation (multi-tenant)
+- Watering reminders based on per-plant intervals
+- Dashboard with health overview chart and reminder queue
+- Per-plant care activity chart (12-week stacked bar)
+- Photo uploads with growth history gallery
+- AI assistant powered by Ollama (uses plant history as context)
+- No-auth local dev mode — no Clerk keys required
 
-## Local development
+## Running locally
 
-Frontend and backend are intentionally separated so each can be deployed independently.
+Two scripts in the project root handle the two modes:
 
-### Docker
+### Docker (recommended first run)
 
-Bring up the full stack with:
-
-```bash
-docker compose up --build
-```
-
-The services will be available at:
-
-- Web app: `http://localhost:3000`
-- API: `http://localhost:8000`
-- API health check: `http://localhost:8000/health`
-
-The web app uses Clerk auth and a same-origin `/api/...` proxy for authenticated requests.
-The proxy forwards `x-clerk-user-id` to the FastAPI backend.
-Clerk auth uses `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`.
-
-### Environment
-
-Set the Clerk publishable and secret keys before running the app with auth enabled.
-Set `API_INTERNAL_URL=http://api:8000` when the web app is running in Docker and needs
-to reach the API container by service name.
-Set `NEXT_PUBLIC_API_URL=http://localhost:8000` only if you still want to call the API
-directly from the browser for local debugging.
-
-Suggested local checks:
-
-1. Start the stack with `docker compose up --build`.
-1. Open `http://localhost:3000`.
-1. Confirm `http://localhost:8000/health` returns `{"status":"ok"}`.
-1. Sign in through Clerk before using the dashboard.
-1. Run `pytest -q` in `apps/api` before merging backend changes.
-
-### API tests
-
-Run the backend test suite from `apps/api`:
+Requires Docker Desktop or Docker Engine.
 
 ```bash
-pytest -q
+./run-docker.sh
 ```
 
-If you use the bundled `uv.lock`, install dependencies first and then run the tests from the virtualenv managed by your tool of choice.
+Starts Postgres, FastAPI, Next.js, and Ollama in containers. The Ollama model (`qwen2.5:0.5b`, ~400 MB) is pulled automatically on first boot and cached in a Docker volume — subsequent starts skip the download.
 
-### Authentication flow
+To wipe the database and start fresh:
 
-- The browser talks to the Next.js `/api` routes.
-- The Next.js route handlers read the Clerk session and forward the Clerk user id to FastAPI.
-- The FastAPI backend uses that id to scope users, plants, and logs.
+```bash
+docker compose down -v && ./run-docker.sh
+```
+
+### Local processes
+
+Requires `uv` and `node`/`npm`. No Docker needed — uses SQLite.
+
+```bash
+./run-local.sh
+```
+
+Ollama is optional. If installed and running, the AI assistant works. If not, the AI endpoint returns a clear 503 with install instructions.
+
+Install `uv`: https://docs.astral.sh/uv/getting-started/installation/
+
+### URLs
+
+| Service | URL |
+|---------|-----|
+| Web app | http://localhost:3000 |
+| API | http://localhost:8000 |
+| API health | http://localhost:8000/health |
+
+## Authentication
+
+Clerk is supported but optional. Without Clerk keys, the app runs in **no-auth local mode** — all requests are scoped to a single `dev-user`. To enable Clerk, set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/web/.env.local`.
+
+## Environment
+
+Copy the example files and fill in values as needed:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+```
+
+| Variable | Where | Description |
+|----------|-------|-------------|
+| `DATABASE_URL` | API | Postgres URL in Docker; SQLite path locally |
+| `UPLOAD_DIR` | API | Directory for photo uploads (`/uploads` in Docker) |
+| `OLLAMA_URL` | API | Ollama base URL (`http://localhost:11434` locally) |
+| `AI_MODEL` | API | Ollama model name (default: `qwen2.5:0.5b`) |
+| `API_INTERNAL_URL` | Web | How Next.js reaches the API (`http://api:8000` in Docker, `http://localhost:8000` locally) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Web | Clerk publishable key (leave empty for no-auth mode) |
+| `CLERK_SECRET_KEY` | Web | Clerk secret key (leave empty for no-auth mode) |
+
+## API tests
+
+```bash
+cd apps/api
+uv run pytest tests/test_main.py -v
+```
+
+36 tests covering: auth, plant CRUD, user isolation, log CRUD, reminders, photos, AI endpoint, health check, CORS.
+
+## E2E tests
+
+Playwright tests live in `apps/web/e2e/`. Requires the full stack running.
+
+```bash
+cd apps/web
+npm run test:e2e          # headless
+npm run test:e2e:ui       # Playwright UI
+```
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 14 App Router, TypeScript, Tailwind CSS |
+| Backend | FastAPI, SQLAlchemy 2, Pydantic v2 |
+| Database | PostgreSQL (Docker) / SQLite (local) |
+| Auth | Clerk (optional) |
+| AI | Ollama (`qwen2.5:0.5b`) |
+| Charts | Recharts |
+| Toasts | Sonner |
+| E2E tests | Playwright |
+| Deployment target | Vercel (web) + Render/Fly.io (API) + Neon (Postgres) |
