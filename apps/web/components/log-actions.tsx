@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { toast } from "sonner";
 
 import { deleteLog } from "@/lib/api";
 import type { LogEntry } from "@/lib/types";
@@ -20,12 +21,15 @@ export function LogActions({ log }: Props) {
       disabled={isPending}
       type="button"
       onClick={() => {
-        if (!confirm("Delete this log entry?")) {
-          return;
-        }
+        if (!confirm("Delete this log entry?")) return;
         startTransition(async () => {
-          await deleteLog(log.id);
-          router.refresh();
+          try {
+            await deleteLog(log.id);
+            toast.success("Log deleted");
+            router.refresh();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Delete failed");
+          }
         });
       }}
     >

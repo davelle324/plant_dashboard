@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { toast } from "sonner";
 
 import { deletePlant } from "@/lib/api";
 import type { Plant } from "@/lib/types";
@@ -34,12 +35,15 @@ export function PlantActions({ plant }: Props) {
         disabled={isPending}
         type="button"
         onClick={() => {
-          if (!confirm(`Delete ${plant.name}?`)) {
-            return;
-          }
+          if (!confirm(`Delete ${plant.name}?`)) return;
           startTransition(async () => {
-            await deletePlant(plant.id);
-            router.refresh();
+            try {
+              await deletePlant(plant.id);
+              toast.success(`${plant.name} deleted`);
+              router.refresh();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Delete failed");
+            }
           });
         }}
       >

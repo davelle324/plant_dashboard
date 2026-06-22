@@ -1,4 +1,5 @@
 import { getPlant, getPlantLogs } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import { LogEntryCard } from "@/components/log-entry-card";
 import { LogForm } from "@/components/log-form";
 import { PlantForm } from "@/components/plant-form";
@@ -10,11 +11,18 @@ type PlantPageProps = {
 export default async function PlantDetailPage({ params }: PlantPageProps) {
   const { id } = params;
   const [plant, logs] = await Promise.all([getPlant(id), getPlantLogs(id)]);
-  const lastCare = logs[0]?.created_at ?? plant.created_at;
+  const lastWatering = logs.find((l) => l.type === "watering");
+  const lastCare = lastWatering?.created_at ?? logs[0]?.created_at ?? plant.created_at;
   const daysSinceLastCare = Math.max(
     Math.floor((Date.now() - new Date(lastCare).getTime()) / 86_400_000),
     0
   );
+  const healthStatus =
+    daysSinceLastCare > plant.watering_interval_days
+      ? { label: "Overdue", style: "bg-red-100 text-red-800" }
+      : daysSinceLastCare >= plant.watering_interval_days * 0.75
+        ? { label: "Due soon", style: "bg-amber-100 text-amber-800" }
+        : { label: "Healthy", style: "bg-emerald-100 text-emerald-800" };
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-8 md:px-10">
@@ -26,7 +34,7 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
           <dl className="mt-4 space-y-4 text-sm">
             <div>
               <dt className="text-slate-500">Last watered</dt>
-              <dd className="mt-1 font-medium text-ink">{lastCare}</dd>
+              <dd className="mt-1 font-medium text-ink">{formatDate(lastCare)}</dd>
             </div>
             <div>
               <dt className="text-slate-500">Days since last care</dt>
@@ -34,7 +42,9 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
             </div>
             <div>
               <dt className="text-slate-500">Indicator</dt>
-              <dd className="mt-1 inline-flex rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-800">Healthy</dd>
+              <dd className={`mt-1 inline-flex rounded-full px-3 py-1 font-medium ${healthStatus.style}`}>
+                {healthStatus.label}
+              </dd>
             </div>
           </dl>
           <div className="mt-6">
@@ -44,7 +54,7 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
             </div>
           </div>
         </div>
-        <div className="rounded-[2rem] bg-ink p-6 text-cream shadow-soft">
+        <div className="rounded-[2rem] bg-ink p-6 text-black shadow-soft">
           <h2 className="text-xl font-semibold">Care history</h2>
           <div className="mt-4">
             <LogForm plantId={plant.id} />

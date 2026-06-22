@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import { createLog, updateLog, type LogInput } from "@/lib/api";
 import type { LogEntry } from "@/lib/types";
@@ -22,34 +23,27 @@ export function LogForm({ plantId, log }: Props) {
   const [form, setForm] = useState<Omit<LogInput, "plant_id">>(
     log ? { type: log.type, note: log.note ?? "" } : empty
   );
-  const [error, setError] = useState<string | null>(null);
-
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
     startTransition(async () => {
       try {
         const plantIdValue = log?.plant_id ?? plantId;
-        if (plantIdValue === undefined) {
-          throw new Error("plant_id is required");
-        }
+        if (plantIdValue === undefined) throw new Error("plant_id is required");
 
-        const payload = {
-          plant_id: plantIdValue,
-          type: form.type,
-          note: form.note?.trim() || undefined
-        };
+        const payload = { plant_id: plantIdValue, type: form.type, note: form.note?.trim() || undefined };
 
         if (log) {
           await updateLog(log.id, payload);
+          toast.success("Log updated");
         } else {
           await createLog(payload);
           setForm(empty);
+          toast.success("Log added");
         }
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        toast.error(err instanceof Error ? err.message : "Something went wrong");
       }
     });
   };
@@ -82,7 +76,6 @@ export function LogForm({ plantId, log }: Props) {
         >
           {log ? "Save log" : "Add log"}
         </button>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
       </div>
     </form>
   );

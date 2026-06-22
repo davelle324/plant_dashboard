@@ -5,7 +5,7 @@ import os
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,10 +34,18 @@ app.add_middleware(
 )
 
 
-def get_current_user(db: Session = Depends(get_db)) -> User:
-    user = db.scalar(select(User).order_by(User.id.asc()))
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    clerk_user_id = request.headers.get("x-clerk-user-id")
+    if not clerk_user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    user = db.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
     if user is None:
-        user = User(email="demo@plants.local", password_hash="demo")
+        user = User(
+            clerk_user_id=clerk_user_id,
+            email=request.headers.get("x-clerk-user-email"),
+            password_hash="clerk",
+        )
         db.add(user)
         db.commit()
         db.refresh(user)

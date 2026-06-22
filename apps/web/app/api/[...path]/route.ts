@@ -1,0 +1,69 @@
+import { auth } from "@clerk/nextjs/server";
+
+const API_BASE_URL = process.env.API_INTERNAL_URL ?? "http://api:8000";
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+function toBackendPath(path: string[] | undefined) {
+  return `/${(path ?? []).join("/")}`;
+}
+
+async function proxy(request: Request, path: string[] | undefined) {
+  let userId: string;
+
+  if (clerkPublishableKey) {
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
+      return Response.json({ detail: "Unauthorized" }, { status: 401 });
+    }
+    userId = clerkUserId;
+  } else {
+    userId = "dev-user";
+  }
+
+  const url = new URL(request.url);
+  const backendUrl = `${API_BASE_URL}${toBackendPath(path)}${url.search}`;
+
+  const hasBody = !["GET", "HEAD"].includes(request.method);
+  const body = hasBody ? await request.text() : undefined;
+
+  const forwardHeaders: Record<string, string> = {
+    "x-clerk-user-id": userId,
+  };
+
+  const contentType = request.headers.get("content-type");
+  if (contentType) forwardHeaders["content-type"] = contentType;
+
+  const clerkEmail = request.headers.get("x-clerk-user-email");
+  if (clerkEmail) forwardHeaders["x-clerk-user-email"] = clerkEmail;
+
+  const response = await fetch(backendUrl, {
+    method: request.method,
+    headers: forwardHeaders,
+    body,
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: response.headers,
+  });
+}
+
+export async function GET(request: Request, context: { params: { path?: string[] } }) {
+  return proxy(request, context.params.path);
+}
+
+export async function POST(request: Request, context: { params: { path?: string[] } }) {
+  return proxy(request, context.params.path);
+}
+
+export async function PUT(request: Request, context: { params: { path?: string[] } }) {
+  return proxy(request, context.params.path);
+}
+
+export async function DELETE(request: Request, context: { params: { path?: string[] } }) {
+  return proxy(request, context.params.path);
+}
+
+export async function PATCH(request: Request, context: { params: { path?: string[] } }) {
+  return proxy(request, context.params.path);
+}

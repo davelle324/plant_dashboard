@@ -1,9 +1,6 @@
 import type { LogEntry, Plant } from "./types";
 
-const API_BASE_URL =
-  typeof window === "undefined"
-    ? process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://api:8000"
-    : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
 
 export type PlantInput = {
   name: string;
@@ -33,6 +30,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
+    credentials: "include",
     headers,
     ...init
   });
@@ -50,57 +48,57 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function getPlants() {
-  return request<Plant[]>("/plants");
+  return request<Plant[]>("/api/plants");
 }
 
 export function getPlant(id: string) {
-  return request<Plant>(`/plants/${id}`);
+  return request<Plant>(`/api/plants/${id}`);
 }
 
 export function getPlantLogs(id: string) {
-  return request<LogEntry[]>(`/plants/${id}/logs`);
+  return request<LogEntry[]>(`/api/plants/${id}/logs`);
 }
 
 export function getReminders() {
-  return request<Reminder[]>("/reminders");
+  return request<Reminder[]>("/api/reminders");
 }
 
 export function createPlant(payload: PlantInput) {
-  return request<Plant>("/plants", {
+  return request<Plant>("/api/plants", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
 export function updatePlant(id: number, payload: PlantInput) {
-  return request<Plant>(`/plants/${id}`, {
+  return request<Plant>(`/api/plants/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload)
   });
 }
 
 export function deletePlant(id: number) {
-  return request<void>(`/plants/${id}`, {
+  return request<void>(`/api/plants/${id}`, {
     method: "DELETE"
   });
 }
 
 export function createLog(payload: LogInput) {
-  return request<LogEntry>("/logs", {
+  return request<LogEntry>("/api/logs", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
 export function updateLog(id: number, payload: LogInput) {
-  return request<LogEntry>(`/logs/${id}`, {
+  return request<LogEntry>(`/api/logs/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload)
   });
 }
 
 export function deleteLog(id: number) {
-  return request<void>(`/logs/${id}`, {
+  return request<void>(`/api/logs/${id}`, {
     method: "DELETE"
   });
 }

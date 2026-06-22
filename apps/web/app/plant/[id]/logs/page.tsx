@@ -1,4 +1,5 @@
 import { getPlantLogs } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 
 type PlantLogsPageProps = {
   params: { id: string };
@@ -18,7 +19,7 @@ export default async function PlantLogsPage({ params }: PlantLogsPageProps) {
             <div key={entry.id} className="rounded-2xl border border-black/5 bg-cream p-4">
               <p className="font-medium text-ink">{entry.type}</p>
               <p className="mt-1 text-sm text-slate-600">
-                {entry.note ?? "No note"} · {entry.created_at}
+                {entry.note ?? "No note"} · {formatDate(entry.created_at)}
               </p>
             </div>
           ))}

@@ -6,3 +6,5 @@ build
 __pycache__/
 plants.db
 .DS_Store
+.next-build
+tmp

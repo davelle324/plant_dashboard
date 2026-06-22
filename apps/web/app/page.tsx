@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const stats = [
   { label: "Plants tracked", value: "12" },
@@ -22,12 +25,32 @@ export default function HomePage() {
             A plant operating system for care, history, and reminders.
           </h1>
         </div>
-        <Link
-          href="/dashboard"
-          className="rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream shadow-soft transition hover:translate-y-[-1px]"
-        >
-          Open dashboard
-        </Link>
+        {clerkPublishableKey ? (
+          <>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream shadow-soft transition hover:translate-y-[-1px]"
+              >
+                Open dashboard
+              </Link>
+            </SignedIn>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream shadow-soft transition hover:translate-y-[-1px]">
+                  Sign in
+                </button>
+              </SignInButton>
+            </SignedOut>
+          </>
+        ) : (
+          <Link
+            href="/dashboard"
+            className="rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream shadow-soft transition hover:translate-y-[-1px]"
+          >
+            Open dashboard
+          </Link>
+        )}
       </header>
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -69,4 +92,3 @@ export default function HomePage() {
     </main>
   );
 }
-

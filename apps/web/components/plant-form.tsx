@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import { createPlant, updatePlant, type PlantInput } from "@/lib/api";
 import type { Plant } from "@/lib/types";
@@ -30,23 +31,22 @@ export function PlantForm({ plant }: Props) {
         }
       : empty
   );
-  const [error, setError] = useState<string | null>(null);
-
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
     startTransition(async () => {
       try {
         if (plant) {
           await updatePlant(plant.id, form);
+          toast.success("Plant updated");
         } else {
           await createPlant(form);
           setForm(empty);
+          toast.success("Plant added");
         }
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        toast.error(err instanceof Error ? err.message : "Something went wrong");
       }
     });
   };
@@ -97,7 +97,6 @@ export function PlantForm({ plant }: Props) {
         >
           {plant ? "Save changes" : "Add plant"}
         </button>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
       </div>
     </form>
   );

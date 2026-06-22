@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { formatDate } from "@/lib/format";
 import type { LogEntry } from "@/lib/types";
 
 import { LogActions } from "./log-actions";
@@ -43,7 +44,7 @@ export function LogEntryCard({ log }: Props) {
           <LogActions log={log} />
         </div>
       </div>
-      <p className="mt-2 text-cream/70">{log.created_at}</p>
+      <p className="mt-2 text-cream/70">{formatDate(log.created_at)}</p>
     </div>
   );
 }
