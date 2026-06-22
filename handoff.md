@@ -27,7 +27,7 @@
 ## Next Steps
 
 - Settings page (`/settings`) is live. Shows account info (Clerk user email/ID in auth mode, "dev-user" label in local mode), plant defaults section (UI only, not yet persisted), and clearly-labeled placeholders for notifications and AI. Linked from the dashboard header.
-- Add frontend integration tests (e.g. Playwright) to catch proxy/auth regressions end-to-end.
+- **Playwright e2e tests** live in `apps/web/e2e/`. Run with `cd apps/web && npm run test:e2e` (requires the full Docker stack running). 4 suites: homepage, dashboard (plant CRUD), plant-detail (log CRUD, date formatting), settings. Use `npm run test:e2e:ui` for the interactive Playwright UI.
 - Decide whether the backend should enforce a stronger trust boundary than header-based Clerk identity forwarding.
 - If Clerk auth is needed locally, replace the empty compose placeholders with real `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` values.
 - Phase 2: AI assistant via Ollama, embeddings/RAG for plant history semantic search.
