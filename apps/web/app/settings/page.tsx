@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { ApiStatus } from "@/components/api-status";
 import { SettingsDefaults } from "@/components/settings-defaults";
 import { SettingsTimezone } from "@/components/settings-timezone";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Account &amp; preferences</h1>
         </div>
         <div className="flex items-center gap-3">
+          <NavAccount />
           <ThemeToggle />
           <Link href="/dashboard" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Back to dashboard

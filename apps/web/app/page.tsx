@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { getFeed, getPlants, getReminders } from "@/lib/api";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { QuickWaterButton } from "@/components/quick-water-button";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -80,6 +81,7 @@ export default async function HomePage() {
         </div>
 
         <div className="flex shrink-0 items-start gap-3 pt-1">
+          <NavAccount />
           <ThemeToggle />
           <Link
             href="/people"

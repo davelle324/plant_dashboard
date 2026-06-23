@@ -9,6 +9,7 @@ Full-stack plant care SaaS. Frontend is Next.js 14 App Router; backend is FastAP
 - Proxy at `app/api/[...path]/route.ts` injects `x-clerk-user-id` and forwards to FastAPI.
 - Backend auto-creates a user row on first request.
 - `INTERNAL_API_SECRET` shared secret: when set, FastAPI rejects requests missing it (timing-safe compare). Next.js proxy forwards it as `x-internal-secret`.
+- Account/logout: `NavAccount` component appears in every page nav. Clerk mode shows Clerk's `UserButton` (avatar + dropdown with logout). No-auth mode shows a "Dev mode" badge.
 
 ### Pages
 | Route | Description |
@@ -47,6 +48,7 @@ Upload is immediate (no caption prompt). After upload, click any photo card to e
 | `components/plant-grid.tsx` | Search input, health-tab filter, health score badges, checkboxes, bulk-action bar, "Load more" |
 | `components/dashboard-gallery.tsx` | Responsive photo grid; always-visible plant name; caption on hover; links to `/plant/[id]` |
 | `components/photo-gallery.tsx` | Upload triggers immediate file selection. `PhotoCard`: hover shows caption or "Add caption…"; click to edit inline (Enter/Escape). Calls `PATCH /photos/{id}`. |
+| `components/nav-account.tsx` | Account button shown in every page nav. Clerk mode: `UserButton` (avatar + dropdown with logout) when signed in, "Sign in" modal button when signed out. No-auth mode: "Dev mode" badge. |
 | `components/follow-button.tsx` | Optimistic follow/unfollow with toast + `router.refresh()` |
 | `components/care-chart.tsx` | 12-week stacked bar (watering/fertilizing/pruning/notes) via Recharts |
 | `components/health-chart.tsx` | Donut — healthy vs overdue plant count |
@@ -104,9 +106,9 @@ Added via Alembic migration `dfd45601f9e6_add_follows_table`. Uses integer FKs t
 - [x] Input length validation (all user-supplied string fields capped)
 - [x] Dependency audit (`pip-audit` clean; Next.js bumped to 14.2.35)
 - [x] Alembic migrations (initial schema + follows table; Docker runs `alembic upgrade head` on boot)
+- [x] **Sentry** — error tracking configured for FastAPI + Next.js; startup banners show status (disabled/connected)
 
 ### Still needed
-- [ ] **Sentry** — error tracking for FastAPI + Next.js (free tier). Wire before first real users.
 - [ ] **Secrets audit** — confirm no `.env` files or keys are in git history.
 - [ ] **Health check on deploy target** — configure Render/Fly to use `/health`.
 - [ ] **Next.js 16 upgrade** — two `npm audit` advisories fixed only in Next 16 (breaking upgrade, low current exposure; track as separate effort).
@@ -125,45 +127,19 @@ Added via Alembic migration `dfd45601f9e6_add_follows_table`. Uses integer FKs t
 
 ---
 
-## Running the App
+## Running & Testing
 
+See README.md for setup scripts, environment variables, and test commands. Brief reference:
+
+**Start:**
 ```bash
-./run-docker.sh    # Docker: Postgres + FastAPI + Next.js + Ollama
-./run-local.sh     # Local: SQLite + native processes, Ollama optional
-source activate_env.sh  # Activate Python venv (creates via uv sync if missing)
+./run-docker.sh    # Docker (recommended)
+./run-local.sh     # Local: SQLite + native processes
 ```
 
-Switching Docker ↔ local: the local script wipes `.next` and `tmp` first (Docker writes them as root). Next.js `distDir` is `/tmp/plants-next`.
+**Test:** `cd apps/api && uv run pytest tests/ -v` (66 tests)
 
-## Database migrations (Alembic)
-
-```bash
-cd apps/api
-uv run alembic upgrade head                              # apply pending migrations
-uv run alembic revision --autogenerate -m "describe it"  # after editing models
-uv run alembic downgrade -1                              # roll back one
-uv run alembic current                                   # show DB revision
-```
-
-Docker runs `alembic upgrade head` before uvicorn on every boot (no-op if current).
-
-**Existing DB without Alembic** (has tables but no `alembic_version`): run `uv run alembic stamp head` once, or wipe with `docker compose down -v`.
-
-## Running Tests
-
-```bash
-# API (66 tests)
-cd apps/api && uv run pytest tests/ -v
-
-# E2E (requires full stack running)
-cd apps/web && npm run test:e2e
-cd apps/web && npm run test:e2e:ui
-```
-
-## What's Committed vs Ignored
-
-- `uv.lock`, `apps/api/alembic/`, `apps/api/alembic.ini` — committed
-- `.venv/`, `uploads/`, `*.db`, `.env*` — gitignored; use `.env.example` as template
+**Git:** `uv.lock`, `alembic/`, `alembic.ini` committed; `.venv/`, `uploads/`, `.env*` ignored.
 
 ---
 

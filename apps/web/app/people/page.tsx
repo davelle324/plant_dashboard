@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { discoverUsers } from "@/lib/api";
 import { FollowButton } from "@/components/follow-button";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { PublicUser } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export default async function PeoplePage({
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Find people to follow</h1>
         </div>
         <div className="flex items-center gap-4">
+          <NavAccount />
           <ThemeToggle />
           <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Back home

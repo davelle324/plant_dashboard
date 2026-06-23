@@ -56,6 +56,7 @@ AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:0.5b")
 INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET", "")
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 
 _sentry_dsn = os.getenv("SENTRY_DSN", "")
 if _sentry_dsn:
@@ -65,16 +66,23 @@ if _sentry_dsn:
         traces_sample_rate=0.1,
         send_default_pii=False,
     )
-    print(f"[startup] Sentry: connected ({_sentry_dsn[:40]}...)")
-else:
-    print("[startup] Sentry: disabled (SENTRY_DSN not set)")
 
 storage = get_storage()
-if isinstance(storage, LocalStorage):
-    print(f"[startup] Photo storage: local disk ({os.getenv('UPLOAD_DIR', '/uploads')})")
+
+# ── Service status banner ────────────────────────────────────────────────────
+print("")
+print("  ┌─ Plant Care API ───────────────────────────────────────────┐")
+if _sentry_dsn:
+    print(f"  │  Sentry  : connected ({_sentry_dsn[:38]}...)")
 else:
-    print(f"[startup] Photo storage: S3 bucket '{os.getenv('S3_BUCKET')}' via {os.getenv('S3_ENDPOINT_URL', 'AWS S3')}")
-MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+    print("  │  Sentry  : disabled  (set SENTRY_DSN to enable)")
+if isinstance(storage, LocalStorage):
+    print(f"  │  Storage : local disk ({os.getenv('UPLOAD_DIR', '/uploads')})")
+else:
+    print(f"  │  Storage : S3 — bucket={os.getenv('S3_BUCKET')}  endpoint={os.getenv('S3_ENDPOINT_URL', 'AWS S3')}")
+print("  └────────────────────────────────────────────────────────────┘")
+print("")
+# ────────────────────────────────────────────────────────────────────────────
 
 
 def _sniff_image_type(header: bytes) -> str | None:

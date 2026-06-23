@@ -20,6 +20,9 @@ A full-stack plant care tracker with AI assistance and photo uploads.
 - AI assistant powered by Ollama (uses plant history as context, runs locally)
 - Dark mode — toggles via a sun/moon button; preference persists in localStorage
 - Settings: display timezone, plant-form defaults (saved in browser), live API status
+- **User account UI** — `NavAccount` component shows Clerk user avatar + logout on all pages; falls back to "Dev mode" badge in no-auth mode
+- **Error tracking** — Sentry integration for FastAPI and Next.js (optional; disabled by default; set `SENTRY_DSN` to enable)
+- **Service status banners** — startup logs clearly show which services are connected (Sentry, S3/R2, Clerk) and whether running in local/dev mode
 - No-auth local dev mode — no Clerk keys required to run
 
 ## Running locally
@@ -93,6 +96,11 @@ cp apps/web/.env.example apps/web/.env.local
 | `API_INTERNAL_URL` | Web | How Next.js reaches the API (`http://api:8000` in Docker, `http://localhost:8000` locally) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Web | Clerk publishable key (leave empty for no-auth mode) |
 | `CLERK_SECRET_KEY` | Web | Clerk secret key (leave empty for no-auth mode) |
+| `NEXT_PUBLIC_SENTRY_DSN` | Web | Sentry DSN for client-side error tracking (optional; leave empty to disable) |
+| `SENTRY_DSN` | API / Web | Sentry DSN for server-side error tracking (optional; leave empty to disable) |
+| `SENTRY_AUTH_TOKEN` | Web (build) | Sentry auth token for source map uploads (only needed if deploying with `SENTRY_DSN`) |
+| `SENTRY_ORG` | Web (build) | Sentry organization slug (only needed if deploying with `SENTRY_DSN`) |
+| `SENTRY_PROJECT` | Web (build) | Sentry project slug, e.g. `plants-web` (only needed if deploying with `SENTRY_DSN`) |
 
 ## Database migrations
 
@@ -115,6 +123,28 @@ Photos use a pluggable storage backend (`apps/api/app/storage.py`):
 - **S3-compatible (production)** — set `S3_BUCKET` (plus credentials) and the backend switches automatically. Works with any S3 API: **Cloudflare R2** (recommended — 10 GB free, zero egress fees), Backblaze B2, Supabase Storage, or AWS S3. Object keys are identical across backends, so switching providers is just an env change.
 
 **Why this matters for deploy:** local disk is wiped on every redeploy on Render/Fly, so configure S3 before storing anything you want to keep. Photo URLs (`/api/uploads/{plant_id}/{filename}`) stay the same either way — in S3 mode the API redirects to a presigned (or CDN) URL.
+
+## Service status
+
+Both the FastAPI backend and Next.js server print startup banners showing the status of integrated services:
+
+**FastAPI startup banner:**
+```
+  ┌─ Plant Care API ───────────────────────────────────────────┐
+  │  Sentry  : connected (https://xxxx@oXXXXX.ingest.sentry...) 
+  │  Storage : S3 — bucket=my-r2-bucket  endpoint=https://...
+  └────────────────────────────────────────────────────────────┘
+```
+
+**Next.js startup banner:**
+```
+  ┌─ Plant Care Web ───────────────────────────────────────────┐
+  │  Clerk   : connected (pk_live_xxxx...)
+  │  Sentry  : connected (https://xxxx@oXXXXX.ingest.sentry...) 
+  └────────────────────────────────────────────────────────────┘
+```
+
+If any service variables are not set, the banner shows `disabled (set VAR_NAME to enable)`.
 
 ## API tests
 

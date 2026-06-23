@@ -17,15 +17,31 @@ export type LogInput = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = init?.body
-    ? { "Content-Type": "application/json", ...(init?.headers ?? {}) }
-    : init?.headers;
+  const baseHeaders: Record<string, string> = {};
+
+  if (init?.body) baseHeaders["Content-Type"] = "application/json";
+
+  // Server-side: forward the incoming request's cookies so Clerk's session
+  // cookie reaches the /api/[...path] route handler and auth() returns a userId.
+  // (Node.js fetch ignores `credentials: "include"` — cookies must be explicit.)
+  if (typeof window === "undefined") {
+    try {
+      const { cookies } = await import("next/headers");
+      const store = cookies();
+      const cookieHeader = store.getAll().map(c => `${c.name}=${c.value}`).join("; ");
+      if (cookieHeader) baseHeaders["Cookie"] = cookieHeader;
+    } catch {
+      // Not in a request context (e.g. during build) — skip
+    }
+  }
+
+  const headers = { ...baseHeaders, ...(init?.headers as Record<string, string> ?? {}) };
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
     credentials: "include",
+    ...init,
     headers,
-    ...init
   });
 
   if (!response.ok) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getPlantLogs } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type PlantLogsPageProps = {
@@ -21,6 +22,7 @@ export default async function PlantLogsPage({ params }: PlantLogsPageProps) {
         >
           ← Plant detail
         </Link>
+        <NavAccount />
         <ThemeToggle />
       </div>
       <p className="mt-4 text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Logs</p>

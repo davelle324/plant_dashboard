@@ -5,6 +5,7 @@ import { DashboardGallery } from "@/components/dashboard-gallery";
 import { HealthChart } from "@/components/health-chart";
 import { PlantForm } from "@/components/plant-form";
 import { PlantGrid } from "@/components/plant-grid";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardPage() {
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Your plants, health, and reminders</h1>
         </div>
         <div className="flex items-center gap-4">
+          <NavAccount />
           <ThemeToggle />
           <Link href="/analytics" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Analytics

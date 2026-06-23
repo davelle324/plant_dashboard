@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getAnalytics } from "@/lib/api";
 import { ActivityChart, TypeBreakdownChart, WateringTrendsChart } from "@/components/analytics-charts";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { PlantStat } from "@/lib/types";
 
@@ -32,6 +33,7 @@ export default async function AnalyticsPage() {
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Usage analytics</h1>
         </div>
         <div className="flex items-center gap-3">
+          <NavAccount />
           <ThemeToggle />
           <Link href="/dashboard" className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-sm font-medium text-ink transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-cream dark:hover:bg-white/10">
             ← Dashboard

@@ -7,7 +7,4 @@ if (dsn) {
     dsn,
     tracesSampleRate: 0.1,
   });
-  console.log("[startup] Sentry (edge): connected");
-} else {
-  console.log("[startup] Sentry (edge): disabled (SENTRY_DSN not set)");
 }

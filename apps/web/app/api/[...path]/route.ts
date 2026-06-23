@@ -9,9 +9,10 @@ function toBackendPath(path: string[] | undefined) {
 }
 
 async function proxy(request: Request, path: string[] | undefined) {
+  const isUpload = path?.[0] === "uploads";
   let userId: string;
 
-  if (clerkPublishableKey) {
+  if (clerkPublishableKey && !isUpload) {
     const { userId: clerkUserId } = await auth();
     if (!clerkUserId) {
       return Response.json({ detail: "Unauthorized" }, { status: 401 });

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getUserGallery, getUserProfile } from "@/lib/api";
 import { FollowButton } from "@/components/follow-button";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { PhotoWithPlant, PublicUser } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export default async function ProfilePage({ params }: { params: { userId: string
           ← All people
         </Link>
         <div className="flex items-center gap-4">
+          <NavAccount />
           <ThemeToggle />
           <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
             Back home

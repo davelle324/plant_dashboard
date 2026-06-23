@@ -9,6 +9,7 @@ import { LogEntryCard } from "@/components/log-entry-card";
 import { LogForm } from "@/components/log-form";
 import { PhotoGallery } from "@/components/photo-gallery";
 import { PlantForm } from "@/components/plant-form";
+import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type PlantPageProps = {
@@ -43,6 +44,7 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
         >
           ← Dashboard
         </Link>
+        <NavAccount />
         <ThemeToggle />
       </div>
       <p className="mt-4 text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Plant detail</p>
