@@ -21,6 +21,9 @@ PLANT_PAYLOAD = {
 def load_app(tmp_path: Path):
     os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'test.db'}"
     os.environ["UPLOAD_DIR"] = str(tmp_path / "uploads")
+    # Force local disk storage — prevents load_dotenv() from picking up a real
+    # S3_BUCKET from apps/api/.env and uploading to the live bucket during tests.
+    os.environ["S3_BUCKET"] = ""
 
     import app.db as db_module
     import app.models as models_module
@@ -495,6 +498,36 @@ def test_upload_photo_rejects_oversized_file(tmp_path):
         assert r.status_code == 413
     finally:
         os.environ.pop("MAX_UPLOAD_BYTES", None)
+
+
+def test_update_photo_caption(tmp_path):
+    """PATCH /photos/{id} sets, updates, and clears captions."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        photo_id = _upload_photo(client, plant_id, AUTH_HEADERS).json()["id"]
+
+        # set caption
+        r = client.patch(f"/photos/{photo_id}", json={"caption": "New leaf!"}, headers=AUTH_HEADERS)
+        assert r.status_code == 200
+        assert r.json()["caption"] == "New leaf!"
+
+        # update caption
+        r = client.patch(f"/photos/{photo_id}", json={"caption": "Updated"}, headers=AUTH_HEADERS)
+        assert r.json()["caption"] == "Updated"
+
+        # clear caption
+        r = client.patch(f"/photos/{photo_id}", json={"caption": None}, headers=AUTH_HEADERS)
+        assert r.json()["caption"] is None
+
+
+def test_update_photo_caption_other_user_forbidden(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        photo_id = _upload_photo(client, plant_id, AUTH_HEADERS).json()["id"]
+        r = client.patch(f"/photos/{photo_id}", json={"caption": "Hack"}, headers=OTHER_HEADERS)
+    assert r.status_code == 404
 
 
 def test_delete_photo(tmp_path):

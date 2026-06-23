@@ -82,7 +82,9 @@ cp apps/web/.env.example apps/web/.env.local
 | Variable | Where | Description |
 |----------|-------|-------------|
 | `DATABASE_URL` | API | Postgres URL in Docker; SQLite path locally |
-| `UPLOAD_DIR` | API | Directory for photo uploads (`/uploads` in Docker) |
+| `UPLOAD_DIR` | API | Local directory for photo uploads (`/uploads` in Docker) — used when S3 is not configured |
+| `S3_BUCKET` | API | Set to switch photo storage to S3-compatible object storage (R2/B2/Supabase/AWS). See "Photo storage" below. |
+| `S3_ENDPOINT_URL` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_PUBLIC_BASE_URL` | API | S3 connection settings (only when `S3_BUCKET` is set) |
 | `OLLAMA_URL` | API | Ollama base URL (`http://localhost:11434` locally) |
 | `AI_MODEL` | API | Ollama model name (default: `qwen2.5:0.5b`) |
 | `CORS_ORIGINS` | API | Comma-separated allowed origins (set to your prod domain before deploying) |
@@ -105,14 +107,23 @@ uv run alembic downgrade -1                              # roll back one
 
 For local SQLite dev and tests, `create_all()` bootstraps the schema automatically, so you don't need to run Alembic by hand. See the "Database migrations (Alembic)" section in `handoff.md` for the one-time `alembic stamp head` step on pre-existing databases.
 
+## Photo storage
+
+Photos use a pluggable storage backend (`apps/api/app/storage.py`):
+
+- **Local disk (default)** — files go to `UPLOAD_DIR` and are served by FastAPI's static mount. Zero config; used in local dev, Docker, and tests.
+- **S3-compatible (production)** — set `S3_BUCKET` (plus credentials) and the backend switches automatically. Works with any S3 API: **Cloudflare R2** (recommended — 10 GB free, zero egress fees), Backblaze B2, Supabase Storage, or AWS S3. Object keys are identical across backends, so switching providers is just an env change.
+
+**Why this matters for deploy:** local disk is wiped on every redeploy on Render/Fly, so configure S3 before storing anything you want to keep. Photo URLs (`/api/uploads/{plant_id}/{filename}`) stay the same either way — in S3 mode the API redirects to a presigned (or CDN) URL.
+
 ## API tests
 
 ```bash
 cd apps/api
-uv run pytest tests/test_main.py -v
+uv run pytest tests/ -v
 ```
 
-60 tests covering: auth (including gallery endpoint), plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade, captions, cross-plant gallery + isolation, content-signature + size validation), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS, and social (user discovery + search, follow/unfollow, self-follow guard, public profiles/galleries, Following feed isolation).
+64 tests covering: auth (including gallery endpoint), plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade, captions, cross-plant gallery + isolation, content-signature + size validation), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS, social (user discovery + search, follow/unfollow, self-follow guard, public profiles/galleries, Following feed isolation), and storage backend selection (local vs S3, save/delete round-trip, presigned/CDN URL building).
 
 ## E2E tests
 

@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir fastapi uvicorn[standard] sqlalchemy pydantic psycopg[binary] httpx python-multipart pytest slowapi alembic
+RUN pip install --no-cache-dir fastapi uvicorn[standard] sqlalchemy pydantic psycopg[binary] httpx python-multipart pytest slowapi alembic boto3 python-dotenv
 
 COPY app ./app
 COPY alembic ./alembic

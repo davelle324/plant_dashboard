@@ -71,6 +71,10 @@ class PhotoRead(BaseModel):
     created_at: datetime
 
 
+class PhotoCaptionUpdate(BaseModel):
+    caption: str | None = Field(None, max_length=500)
+
+
 class PhotoWithPlant(PhotoRead):
     plant_name: str
 

@@ -108,10 +108,10 @@ follows (id PK, follower_id FK→users.id, following_id FK→users.id, created_a
 | `lib/types.ts` | `PublicUser`, `FeedItem` |
 
 ### Tests
-9 social tests in `tests/test_main.py` ("Social" section): auth required, discovery excludes self + search by handle, follow/unfollow flow + idempotency, self-follow guard, follow-missing-user 404, public gallery, feed shows followed users' photos, feed excludes own + unfollowed. **Total suite: 60 tests, all passing.**
+9 social tests in `tests/test_main.py` ("Social" section): auth required, discovery excludes self + search by handle, follow/unfollow flow + idempotency, self-follow guard, follow-missing-user 404, public gallery, feed shows followed users' photos, feed excludes own + unfollowed. Plus 4 storage tests in `tests/test_storage.py` (backend selection, local save/delete round-trip, S3 presigned/CDN URL). **Total suite: 64 tests, all passing.**
 
 ### Next steps for this feature
-- **Photo storage** — feed/galleries make durable S3/R2 storage urgent (local disk wipes on redeploy; see checklist).
+- **Photo storage** — ✅ Pluggable S3-compatible backend done (`app/storage.py`); just needs a production bucket + env (see checklist).
 - **Feed caching** — `/feed` is the heaviest query (cross-user join). Add Redis cache per-user (30–60s TTL) before scale.
 - **Real usernames** — add a `display_name`/`username` column instead of deriving from email; needed for nicer handles + non-email search.
 - **Visibility controls** — if not all photos should be public, add a per-plant or per-photo `is_public` flag.
@@ -125,7 +125,7 @@ follows (id PK, follower_id FK→users.id, following_id FK→users.id, created_a
 - [x] **Auth trust boundary** — Added `INTERNAL_API_SECRET` shared secret. When set, FastAPI rejects requests missing it (using `secrets.compare_digest`). Next.js proxy forwards the secret as `x-internal-secret`. Dev mode unchanged (no secret = allow through).
 - [x] **CORS lockdown** — Already reads from `CORS_ORIGINS` env var; defaults to localhost. Documented in `.env.example`.
 - [x] **File upload hardening** — `upload_photo` now validates magic-byte signatures (JPEG/PNG/GIF/WebP) instead of trusting the extension, enforces a size cap (`MAX_UPLOAD_BYTES`, default 5 MB, returns 413), and writes filenames as `uuid4` + validated extension. Chose in-Python signature sniffing over `python-magic` to avoid the `libmagic` system dependency.
-- [ ] **S3/R2 for photo storage** — Local disk doesn't survive redeploys on Render/Fly. Swap `StaticFiles` + local disk for object storage before deploying.
+- [x] **S3/R2 for photo storage** — Pluggable storage backend in `app/storage.py`. Local disk (default, zero-config) for dev/Docker/tests; S3-compatible (R2/B2/Supabase/AWS) in production by setting `S3_BUCKET` + creds. Object keys identical across backends. Photo URLs unchanged (`/uploads/{plant_id}/{filename}`) — S3 mode redirects to a presigned/CDN URL. **Still need to create the bucket + set env in production** (recommended: Cloudflare R2 — 10 GB free, zero egress).
 
 ### Security hardening (important, not blockers)
 
@@ -213,8 +213,8 @@ Alternatively, wipe the dev volume: `docker compose down -v` (destroys local dat
 ## Running Tests
 
 ```bash
-# API (60 tests)
-cd apps/api && uv run pytest tests/test_main.py -v
+# API (64 tests)
+cd apps/api && uv run pytest tests/ -v
 
 # E2E (requires full stack running)
 cd apps/web && npm run test:e2e
@@ -234,7 +234,7 @@ cd apps/web && npm run test:e2e:ui   # interactive UI
 
 - `DATABASE_URL` supports both Postgres (`postgresql+psycopg://...`) and SQLite (`sqlite:///./plants.db`)
 - `API_INTERNAL_URL` must be `http://localhost:8000` locally; Docker compose sets it to `http://api:8000`
-- Photo files are served by FastAPI `StaticFiles` mounted at `/uploads`; in Docker this is a named volume (`uploads_data`)
+- Photo storage is abstracted in `app/storage.py` (`get_storage()` picks the backend from env). **Local backend** (default): files served by FastAPI `StaticFiles` at `/uploads`; in Docker a named volume (`uploads_data`). **S3 backend** (set `S3_BUCKET`): files in object storage, served via a `/uploads/{plant_id}/{filename}` route that redirects to a presigned/CDN URL. The upload/delete endpoints call `storage.save()`/`storage.delete()` with key `{plant_id}/{filename}` — backend-agnostic.
 - Schema changes are managed by **Alembic** (see "Database migrations (Alembic)" section). `Base.metadata.create_all()` still runs in `lifespan()` as a zero-config bootstrap for local dev and the test suite; production applies migrations via `alembic upgrade head`
 - Ollama model is auto-pulled on first Docker boot (stored in `ollama_data` volume); `run-local.sh` also auto-pulls if Ollama is installed
 - Backend trust boundary: `x-clerk-user-id` header is trusted without cryptographic verification — acceptable for local dev, should be hardened before public deployment

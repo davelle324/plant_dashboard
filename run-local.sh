@@ -52,13 +52,24 @@ fi
 
 mkdir -p "$ROOT/apps/api/uploads"
 
+# Load apps/api/.env so S3 credentials and other custom vars reach uvicorn.
+# Variables already set in the shell take precedence (set -a exports everything).
+if [ -f "$ROOT/apps/api/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/apps/api/.env"
+  set +a
+fi
+
 echo ""
 echo "Starting API..."
 cd "$ROOT/apps/api"
-DATABASE_URL="sqlite:///./plants.db" \
+# Explicit overrides for local dev — DATABASE_URL and UPLOAD_DIR default to
+# local paths; OLLAMA_URL is resolved above. S3 vars come through from .env.
+DATABASE_URL="${DATABASE_URL:-sqlite:///./plants.db}" \
 OLLAMA_URL="$OLLAMA_URL" \
 AI_MODEL="${AI_MODEL:-qwen2.5:0.5b}" \
-UPLOAD_DIR="$ROOT/apps/api/uploads" \
+UPLOAD_DIR="${UPLOAD_DIR:-$ROOT/apps/api/uploads}" \
 uv run uvicorn app.main:app --reload --port "$API_PORT" --log-level warning &
 API_PID=$!
 

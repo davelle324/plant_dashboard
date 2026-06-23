@@ -8,7 +8,7 @@ import { ThemeProvider } from "@/lib/theme";
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export const metadata: Metadata = {
-  title: "Plant Care SaaS",
+  title: "Plant Dashboard",
   description: "Track plants, care logs, reminders, and health signals."
 };
 

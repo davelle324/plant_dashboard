@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import os
+
+from dotenv import load_dotenv
+
+load_dotenv()  # loads apps/api/.env when present; no-op if missing or in production
 import secrets
 import time
 import uuid
@@ -12,6 +16,7 @@ from pathlib import Path
 import httpx
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -21,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
 from .models import Follow, Log, Photo, Plant, User
+from .storage import LocalStorage, UPLOAD_DIR, get_storage
 from .schemas import (
     AnalyticsRead,
     AskRequest,
@@ -29,6 +35,7 @@ from .schemas import (
     LogCreate,
     LogRead,
     LogUpdate,
+    PhotoCaptionUpdate,
     PhotoRead,
     PhotoWithPlant,
     PlantCreate,
@@ -41,11 +48,16 @@ from .schemas import (
     WeeklyCount,
 )
 
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/uploads"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:0.5b")
 INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET", "")
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
+storage = get_storage()
+_log.info("Photo storage: %s", type(storage).__name__)
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 
 
@@ -71,7 +83,8 @@ limiter = Limiter(key_func=_rate_limit_key)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    if isinstance(storage, LocalStorage):
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     # Schema is owned by Alembic in production (`alembic upgrade head` runs at deploy).
     # create_all() remains as a zero-config bootstrap for local dev and the test suite,
     # where running migrations on every fresh SQLite DB would be needless overhead.
@@ -160,7 +173,15 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), name="uploads")
+# Photo serving. Frontend URLs are always `/uploads/{plant_id}/{filename}` regardless
+# of backend: local disk is served by StaticFiles; S3 redirects to a presigned/CDN URL.
+if isinstance(storage, LocalStorage):
+    app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), name="uploads")
+else:
+
+    @app.get("/uploads/{plant_id}/{filename}")
+    def serve_upload(plant_id: int, filename: str) -> RedirectResponse:
+        return RedirectResponse(storage.url(f"{plant_id}/{filename}"))
 
 
 # ---------------------------------------------------------------------------
@@ -291,15 +312,12 @@ async def upload_photo(
         raise HTTPException(status_code=413, detail=f"File too large. Max size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
 
     # Verify the actual file content, not just the extension (which is spoofable).
-    if _sniff_image_type(content) is None:
+    image_type = _sniff_image_type(content)
+    if image_type is None:
         raise HTTPException(status_code=400, detail="File content is not a valid image.")
 
-    plant_dir = UPLOAD_DIR / str(plant_id)
-    plant_dir.mkdir(parents=True, exist_ok=True)
-
     filename = f"{uuid.uuid4()}{ext}"
-    with open(plant_dir / filename, "wb") as dest:
-        dest.write(content)
+    storage.save(f"{plant_id}/{filename}", content, content_type=f"image/{image_type}")
 
     photo = Photo(plant_id=plant_id, filename=filename, caption=caption or None)
     db.add(photo)
@@ -311,10 +329,23 @@ async def upload_photo(
 @app.delete("/photos/{photo_id}", status_code=204)
 def delete_photo(photo_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> None:
     photo = photo_or_404(db, photo_id, current_user.id)
-    path = UPLOAD_DIR / str(photo.plant_id) / photo.filename
-    path.unlink(missing_ok=True)
+    storage.delete(f"{photo.plant_id}/{photo.filename}")
     db.delete(photo)
     db.commit()
+
+
+@app.patch("/photos/{photo_id}", response_model=PhotoRead)
+def update_photo_caption(
+    photo_id: int,
+    payload: PhotoCaptionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Photo:
+    photo = photo_or_404(db, photo_id, current_user.id)
+    photo.caption = payload.caption
+    db.commit()
+    db.refresh(photo)
+    return photo
 
 
 @app.get("/photos", response_model=list[PhotoWithPlant])

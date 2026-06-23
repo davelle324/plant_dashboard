@@ -125,6 +125,13 @@ export function deletePhoto(photoId: number) {
   return request<void>(`/api/photos/${photoId}`, { method: "DELETE" });
 }
 
+export function updatePhotoCaption(photoId: number, caption: string | null) {
+  return request<Photo>(`/api/photos/${photoId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ caption }),
+  });
+}
+
 export function getAnalytics() {
   return request<Analytics>("/api/analytics");
 }
