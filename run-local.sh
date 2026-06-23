@@ -70,7 +70,7 @@ DATABASE_URL="${DATABASE_URL:-sqlite:///./plants.db}" \
 OLLAMA_URL="$OLLAMA_URL" \
 AI_MODEL="${AI_MODEL:-qwen2.5:0.5b}" \
 UPLOAD_DIR="${UPLOAD_DIR:-$ROOT/apps/api/uploads}" \
-uv run uvicorn app.main:app --reload --port "$API_PORT" --log-level warning &
+uv run uvicorn app.main:app --reload --port "$API_PORT" --log-level info &
 API_PID=$!
 
 # Wait until the API responds

@@ -24,6 +24,8 @@ def load_app(tmp_path: Path):
     # Force local disk storage — prevents load_dotenv() from picking up a real
     # S3_BUCKET from apps/api/.env and uploading to the live bucket during tests.
     os.environ["S3_BUCKET"] = ""
+    # Disable Sentry in tests — prevents real events being sent to the dashboard.
+    os.environ["SENTRY_DSN"] = ""
 
     import app.db as db_module
     import app.models as models_module

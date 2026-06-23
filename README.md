@@ -123,7 +123,7 @@ cd apps/api
 uv run pytest tests/ -v
 ```
 
-64 tests covering: auth (including gallery endpoint), plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade, captions, cross-plant gallery + isolation, content-signature + size validation), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS, social (user discovery + search, follow/unfollow, self-follow guard, public profiles/galleries, Following feed isolation), and storage backend selection (local vs S3, save/delete round-trip, presigned/CDN URL building).
+66 tests covering: auth (including gallery endpoint), plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade, captions, caption updates, cross-plant gallery + isolation, content-signature + size validation), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS, social (user discovery + search, follow/unfollow, self-follow guard, public profiles/galleries, Following feed isolation), and storage backend selection (local vs S3, save/delete round-trip, presigned/CDN URL building).
 
 ## E2E tests
 

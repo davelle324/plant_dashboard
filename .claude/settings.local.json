@@ -6,7 +6,8 @@
       "Bash(npx next *)",
       "Bash(npm run *)",
       "Bash(rm -rf /tmp/plants-next && npm run build 2>&1 | tail -20)",
-      "Bash(uv add *)"
+      "Bash(uv add *)",
+      "Bash(npm install *)"
     ]
   }
 }
