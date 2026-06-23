@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -23,6 +23,16 @@ class User(Base):
     plants: Mapped[list["Plant"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
+class Follow(Base):
+    """A directed follow edge: ``follower_id`` follows ``following_id``."""
+
+    __tablename__ = "follows"
+    __table_args__ = (UniqueConstraint("follower_id", "following_id", name="uq_follow_pair"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    follower_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    following_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
 
 

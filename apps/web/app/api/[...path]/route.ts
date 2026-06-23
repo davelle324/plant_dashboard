@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 
 const API_BASE_URL = process.env.API_INTERNAL_URL ?? "http://api:8000";
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const internalApiSecret = process.env.INTERNAL_API_SECRET;
 
 function toBackendPath(path: string[] | undefined) {
   return `/${(path ?? []).join("/")}`;
@@ -39,6 +40,7 @@ async function proxy(request: Request, path: string[] | undefined) {
   };
 
   if (contentType) forwardHeaders["content-type"] = contentType;
+  if (internalApiSecret) forwardHeaders["x-internal-secret"] = internalApiSecret;
 
   const clerkEmail = request.headers.get("x-clerk-user-email");
   if (clerkEmail) forwardHeaders["x-clerk-user-email"] = clerkEmail;

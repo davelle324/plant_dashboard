@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-import shutil
+import secrets
 import time
 import uuid
 from collections.abc import Sequence
@@ -13,15 +13,19 @@ import httpx
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select, text
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
-from .models import Log, Photo, Plant, User
+from .models import Follow, Log, Photo, Plant, User
 from .schemas import (
     AnalyticsRead,
     AskRequest,
     AskResponse,
+    FeedItem,
     LogCreate,
     LogRead,
     LogUpdate,
@@ -31,6 +35,7 @@ from .schemas import (
     PlantRead,
     PlantUpdate,
     PlantStat,
+    PublicUserRead,
     ReminderRead,
     WateringInterval,
     WeeklyCount,
@@ -39,23 +44,41 @@ from .schemas import (
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/uploads"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:0.5b")
+INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET", "")
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+
+
+def _sniff_image_type(header: bytes) -> str | None:
+    """Return a canonical image type from magic bytes, or None if unrecognized."""
+    if header[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if header[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if header[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def _rate_limit_key(request: Request) -> str:
+    return request.headers.get("x-clerk-user-id") or get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    # Schema is owned by Alembic in production (`alembic upgrade head` runs at deploy).
+    # create_all() remains as a zero-config bootstrap for local dev and the test suite,
+    # where running migrations on every fresh SQLite DB would be needless overhead.
     last_error: Exception | None = None
     for _ in range(30):
         try:
             Base.metadata.create_all(bind=engine)
-            # Add caption column to photos if it doesn't exist (safe on SQLite + Postgres).
-            with engine.connect() as conn:
-                try:
-                    conn.execute(text("ALTER TABLE photos ADD COLUMN caption VARCHAR(500)"))
-                    conn.commit()
-                except Exception:
-                    pass  # column already exists
             break
         except Exception as exc:  # pragma: no cover
             last_error = exc
@@ -67,6 +90,8 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 
 
 app = FastAPI(title="Plant Care API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 cors_origins = [
     origin.strip()
@@ -87,6 +112,11 @@ app.add_middleware(
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    if INTERNAL_API_SECRET:
+        provided = request.headers.get("x-internal-secret", "")
+        if not secrets.compare_digest(provided, INTERNAL_API_SECRET):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     clerk_user_id = request.headers.get("x-clerk-user-id")
     if not clerk_user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -240,7 +270,9 @@ def list_photos(plant_id: int, db: Session = Depends(get_db), current_user: User
 
 
 @app.post("/plants/{plant_id}/photos", response_model=PhotoRead, status_code=201)
+@limiter.limit("20/minute")
 async def upload_photo(
+    request: Request,
     plant_id: int,
     file: UploadFile = File(...),
     caption: str | None = Form(None),
@@ -253,12 +285,21 @@ async def upload_photo(
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
 
+    # Read with a hard size cap (one byte over the limit proves it's too large).
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large. Max size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+
+    # Verify the actual file content, not just the extension (which is spoofable).
+    if _sniff_image_type(content) is None:
+        raise HTTPException(status_code=400, detail="File content is not a valid image.")
+
     plant_dir = UPLOAD_DIR / str(plant_id)
     plant_dir.mkdir(parents=True, exist_ok=True)
 
     filename = f"{uuid.uuid4()}{ext}"
     with open(plant_dir / filename, "wb") as dest:
-        shutil.copyfileobj(file.file, dest)
+        dest.write(content)
 
     photo = Photo(plant_id=plant_id, filename=filename, caption=caption or None)
     db.add(photo)
@@ -426,7 +467,8 @@ def get_reminders(
 # ---------------------------------------------------------------------------
 
 @app.post("/ai/ask", response_model=AskResponse)
-def ask_ai(payload: AskRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AskResponse:
+@limiter.limit("10/minute")
+def ask_ai(request: Request, payload: AskRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AskResponse:
     plant = plant_or_404(db, payload.plant_id, current_user.id)
 
     recent_logs = db.scalars(
@@ -465,3 +507,154 @@ def ask_ai(payload: AskRequest, db: Session = Depends(get_db), current_user: Use
         raise HTTPException(status_code=503, detail=f"Ollama error: {exc.response.text}")
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"AI service unavailable: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Social — public profiles, following, feed
+# ---------------------------------------------------------------------------
+
+def _display_name(user: User) -> str:
+    """Human-friendly handle. Derived from email until real usernames exist."""
+    if user.email:
+        return user.email.split("@", 1)[0]
+    return user.clerk_user_id
+
+
+def _user_or_404(db: Session, user_id: int) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+def _build_public_user(db: Session, target: User, current_user: User) -> PublicUserRead:
+    plant_count = db.scalar(select(func.count(Plant.id)).where(Plant.user_id == target.id)) or 0
+    photo_count = (
+        db.scalar(select(func.count(Photo.id)).join(Plant, Photo.plant_id == Plant.id).where(Plant.user_id == target.id))
+        or 0
+    )
+    follower_count = db.scalar(select(func.count(Follow.id)).where(Follow.following_id == target.id)) or 0
+    following_count = db.scalar(select(func.count(Follow.id)).where(Follow.follower_id == target.id)) or 0
+    is_following = (
+        db.scalar(
+            select(func.count(Follow.id)).where(
+                Follow.follower_id == current_user.id, Follow.following_id == target.id
+            )
+        )
+        or 0
+    ) > 0
+    return PublicUserRead(
+        id=target.id,
+        display_name=_display_name(target),
+        plant_count=plant_count,
+        photo_count=photo_count,
+        follower_count=follower_count,
+        following_count=following_count,
+        is_following=is_following,
+        is_self=target.id == current_user.id,
+    )
+
+
+@app.get("/users", response_model=list[PublicUserRead])
+def discover_users(
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[PublicUserRead]:
+    """Discover other users. Optional ``q`` filters by email substring (the handle source)."""
+    stmt = select(User).where(User.id != current_user.id)
+    if q:
+        stmt = stmt.where(User.email.ilike(f"%{q}%"))
+    users = db.scalars(stmt.order_by(User.id).limit(50)).all()
+    return [_build_public_user(db, u, current_user) for u in users]
+
+
+@app.get("/users/{user_id}", response_model=PublicUserRead)
+def get_user_profile(
+    user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> PublicUserRead:
+    target = _user_or_404(db, user_id)
+    return _build_public_user(db, target, current_user)
+
+
+@app.get("/users/{user_id}/gallery", response_model=list[PhotoWithPlant])
+def get_user_gallery(
+    user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[PhotoWithPlant]:
+    """Public gallery of a single user's photos (public-by-default visibility model)."""
+    _user_or_404(db, user_id)
+    rows = db.execute(
+        select(Photo, Plant.name)
+        .join(Plant, Photo.plant_id == Plant.id)
+        .where(Plant.user_id == user_id)
+        .order_by(Photo.created_at.desc())
+    ).all()
+    return [
+        PhotoWithPlant(
+            id=row.Photo.id,
+            plant_id=row.Photo.plant_id,
+            filename=row.Photo.filename,
+            caption=row.Photo.caption,
+            created_at=row.Photo.created_at,
+            plant_name=row[1],
+        )
+        for row in rows
+    ]
+
+
+@app.post("/users/{user_id}/follow", status_code=204)
+def follow_user(
+    user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> None:
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot follow yourself.")
+    _user_or_404(db, user_id)
+    existing = db.scalar(
+        select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
+    )
+    if existing is None:  # idempotent — following twice is a no-op
+        db.add(Follow(follower_id=current_user.id, following_id=user_id))
+        db.commit()
+
+
+@app.delete("/users/{user_id}/follow", status_code=204)
+def unfollow_user(
+    user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> None:
+    existing = db.scalar(
+        select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
+    )
+    if existing is not None:
+        db.delete(existing)
+        db.commit()
+
+
+@app.get("/feed", response_model=list[FeedItem])
+def get_feed(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[FeedItem]:
+    """Photos from everyone the current user follows, newest first."""
+    followed_ids = list(
+        db.scalars(select(Follow.following_id).where(Follow.follower_id == current_user.id)).all()
+    )
+    if not followed_ids:
+        return []
+    rows = db.execute(
+        select(Photo, Plant.name, User)
+        .join(Plant, Photo.plant_id == Plant.id)
+        .join(User, Plant.user_id == User.id)
+        .where(Plant.user_id.in_(followed_ids))
+        .order_by(Photo.created_at.desc())
+        .limit(100)
+    ).all()
+    return [
+        FeedItem(
+            id=row.Photo.id,
+            plant_id=row.Photo.plant_id,
+            filename=row.Photo.filename,
+            caption=row.Photo.caption,
+            created_at=row.Photo.created_at,
+            plant_name=row[1],
+            owner_id=row.User.id,
+            owner_display_name=_display_name(row.User),
+        )
+        for row in rows
+    ]

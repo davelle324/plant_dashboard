@@ -9,9 +9,9 @@ LogType = Literal["watering", "pruning", "fertilizing", "notes"]
 
 
 class PlantBase(BaseModel):
-    name: str
-    species: str
-    location: str
+    name: str = Field(max_length=100)
+    species: str = Field(max_length=100)
+    location: str = Field(max_length=100)
     watering_interval_days: int = Field(ge=1, le=365)
 
 
@@ -35,7 +35,7 @@ class PlantRead(PlantBase):
 class LogBase(BaseModel):
     plant_id: int
     type: LogType
-    note: str | None = None
+    note: str | None = Field(None, max_length=2000)
 
 
 class LogCreate(LogBase):
@@ -77,7 +77,7 @@ class PhotoWithPlant(PhotoRead):
 
 class AskRequest(BaseModel):
     plant_id: int
-    question: str
+    question: str = Field(max_length=500)
 
 
 class AskResponse(BaseModel):
@@ -111,3 +111,33 @@ class AnalyticsRead(BaseModel):
     logs_by_type: dict[str, int]
     activity_by_week: list[WeeklyCount]
     plant_stats: list[PlantStat]
+
+
+# ---------------------------------------------------------------------------
+# Social — public profiles, following, feed
+# ---------------------------------------------------------------------------
+
+class PublicUserRead(BaseModel):
+    """A user as seen by others. Email is intentionally omitted for privacy."""
+
+    id: int
+    display_name: str
+    plant_count: int
+    photo_count: int
+    follower_count: int
+    following_count: int
+    is_following: bool
+    is_self: bool
+
+
+class FeedItem(BaseModel):
+    """A photo in the Following feed, with its plant and owner attached."""
+
+    id: int
+    plant_id: int
+    filename: str
+    caption: str | None = None
+    created_at: datetime
+    plant_name: str
+    owner_id: int
+    owner_display_name: str

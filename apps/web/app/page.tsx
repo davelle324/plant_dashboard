@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
-import { getPlants, getReminders } from "@/lib/api";
+import { getFeed, getPlants, getReminders } from "@/lib/api";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { QuickWaterButton } from "@/components/quick-water-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -10,10 +10,14 @@ const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 async function fetchData() {
   try {
-    const [plants, reminders] = await Promise.all([getPlants(), getReminders()]);
-    return { plants, reminders };
+    const [plants, reminders, feed] = await Promise.all([
+      getPlants(),
+      getReminders(),
+      getFeed().catch(() => []),
+    ]);
+    return { plants, reminders, feed };
   } catch {
-    return { plants: [], reminders: [] };
+    return { plants: [], reminders: [], feed: [] };
   }
 }
 
@@ -51,7 +55,7 @@ const FEATURES = [
 ];
 
 export default async function HomePage() {
-  const { plants, reminders } = await fetchData();
+  const { plants, reminders, feed } = await fetchData();
   const overdueMap = new Map(reminders.map((r) => [r.plant_id, r]));
   const coveragePct =
     plants.length === 0
@@ -77,6 +81,12 @@ export default async function HomePage() {
 
         <div className="flex shrink-0 items-start gap-3 pt-1">
           <ThemeToggle />
+          <Link
+            href="/people"
+            className="rounded-full border border-black/10 px-5 py-3 text-sm font-medium text-ink transition hover:-translate-y-px dark:border-white/15 dark:text-cream"
+          >
+            Find people
+          </Link>
           {clerkPublishableKey ? (
             <>
               <SignedIn>
@@ -167,6 +177,41 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ── Following feed ──────────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-ink dark:text-cream">Following</h2>
+          <Link href="/people" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
+            Find people →
+          </Link>
+        </div>
+        {feed.length === 0 ? (
+          <p className="mt-4 rounded-[2rem] border border-dashed border-black/10 p-8 text-center text-sm text-slate-500 dark:border-white/10">
+            Your feed is empty. <Link href="/people" className="underline underline-offset-2">Follow other gardeners</Link> to see their plant photos here.
+          </p>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {feed.map((item) => (
+              <Link
+                key={item.id}
+                href={`/profile/${item.owner_id}`}
+                className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white/70 shadow-soft dark:border-white/10 dark:bg-white/5"
+              >
+                <PlantThumbnail
+                  src={`/api/uploads/${item.plant_id}/${item.filename}`}
+                  alt={item.caption ?? item.plant_name}
+                  className="aspect-square w-full object-cover"
+                />
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs text-white">
+                  <span className="block font-medium">@{item.owner_display_name}</span>
+                  <span className="block text-white/80">{item.plant_name}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* ── Features ────────────────────────────────────────────────────── */}
       <section>

@@ -1,4 +1,4 @@
-import type { Analytics, LogEntry, Photo, PhotoWithPlant, Plant, Reminder } from "./types";
+import type { Analytics, FeedItem, LogEntry, Photo, PhotoWithPlant, Plant, PublicUser, Reminder } from "./types";
 
 const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
 
@@ -135,4 +135,30 @@ export function askAI(plantId: number, question: string) {
     method: "POST",
     body: JSON.stringify({ plant_id: plantId, question })
   });
+}
+
+// Social — following, feed, profiles
+export function getFeed() {
+  return request<FeedItem[]>("/api/feed");
+}
+
+export function discoverUsers(q?: string) {
+  const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+  return request<PublicUser[]>(`/api/users${qs}`);
+}
+
+export function getUserProfile(userId: number | string) {
+  return request<PublicUser>(`/api/users/${userId}`);
+}
+
+export function getUserGallery(userId: number | string) {
+  return request<PhotoWithPlant[]>(`/api/users/${userId}/gallery`);
+}
+
+export function followUser(userId: number) {
+  return request<void>(`/api/users/${userId}/follow`, { method: "POST" });
+}
+
+export function unfollowUser(userId: number) {
+  return request<void>(`/api/users/${userId}/follow`, { method: "DELETE" });
 }

@@ -16,6 +16,7 @@ A full-stack plant care tracker with AI assistance and photo uploads.
 - Analytics page — care events per week, care type breakdown, watering consistency trend chart, per-plant stats table
 - Photo uploads with optional captions; captions appear on hover in the per-plant gallery and the dashboard gallery
 - Dashboard gallery — all photos across every plant in one grid; shows plant name and caption on hover, links to plant detail page
+- **Social / following** — discover other gardeners (`/people`), view their public profile + plant gallery (`/profile/[userId]`), follow/unfollow them, and see their photos in a "Following" feed on the homepage
 - AI assistant powered by Ollama (uses plant history as context, runs locally)
 - Dark mode — toggles via a sun/moon button; preference persists in localStorage
 - Settings: display timezone, plant-form defaults (saved in browser), live API status
@@ -84,9 +85,25 @@ cp apps/web/.env.example apps/web/.env.local
 | `UPLOAD_DIR` | API | Directory for photo uploads (`/uploads` in Docker) |
 | `OLLAMA_URL` | API | Ollama base URL (`http://localhost:11434` locally) |
 | `AI_MODEL` | API | Ollama model name (default: `qwen2.5:0.5b`) |
+| `CORS_ORIGINS` | API | Comma-separated allowed origins (set to your prod domain before deploying) |
+| `INTERNAL_API_SECRET` | API + Web | Shared secret; when set, the API rejects requests that don't carry it. Must match on both services. |
+| `MAX_UPLOAD_BYTES` | API | Max photo upload size in bytes (default 5 MB) |
 | `API_INTERNAL_URL` | Web | How Next.js reaches the API (`http://api:8000` in Docker, `http://localhost:8000` locally) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Web | Clerk publishable key (leave empty for no-auth mode) |
 | `CLERK_SECRET_KEY` | Web | Clerk secret key (leave empty for no-auth mode) |
+
+## Database migrations
+
+Schema is versioned with [Alembic](https://alembic.sqlalchemy.org/) (in `apps/api/`). The Docker API container runs `alembic upgrade head` on boot. For manual work:
+
+```bash
+cd apps/api
+uv run alembic upgrade head                              # apply pending migrations
+uv run alembic revision --autogenerate -m "describe it"  # after editing models
+uv run alembic downgrade -1                              # roll back one
+```
+
+For local SQLite dev and tests, `create_all()` bootstraps the schema automatically, so you don't need to run Alembic by hand. See the "Database migrations (Alembic)" section in `handoff.md` for the one-time `alembic stamp head` step on pre-existing databases.
 
 ## API tests
 
@@ -95,7 +112,7 @@ cd apps/api
 uv run pytest tests/test_main.py -v
 ```
 
-49 tests covering: auth (including gallery endpoint), plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade, captions, cross-plant gallery + isolation), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS.
+60 tests covering: auth (including gallery endpoint), plant CRUD, user isolation, log CRUD, reminders (overdue + `?all=true` param + isolation), photos (upload/delete/cascade, captions, cross-plant gallery + isolation, content-signature + size validation), analytics (counts, isolation, avg-days, watering intervals), AI endpoint, health check, CORS, and social (user discovery + search, follow/unfollow, self-follow guard, public profiles/galleries, Following feed isolation).
 
 ## E2E tests
 

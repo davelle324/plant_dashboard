@@ -59,3 +59,25 @@ export type Analytics = {
   plant_stats: PlantStat[];
 };
 
+export type PublicUser = {
+  id: number;
+  display_name: string;
+  plant_count: number;
+  photo_count: number;
+  follower_count: number;
+  following_count: number;
+  is_following: boolean;
+  is_self: boolean;
+};
+
+export type FeedItem = {
+  id: number;
+  plant_id: number;
+  filename: string;
+  caption: string | null;
+  created_at: string;
+  plant_name: string;
+  owner_id: number;
+  owner_display_name: string;
+};
+

@@ -405,12 +405,17 @@ def test_cors_allows_local_web_origin(tmp_path):
 # Photos
 # ---------------------------------------------------------------------------
 
+# Minimal valid image payloads (real magic bytes) for upload tests.
+JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 16
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+
+
 def _upload_photo(
     client: TestClient,
     plant_id: int,
     headers: dict,
     filename: str = "plant.jpg",
-    content: bytes = b"fake-image-bytes",
+    content: bytes = JPEG_BYTES,
     content_type: str = "image/jpeg",
 ):
     return client.post(
@@ -466,6 +471,30 @@ def test_upload_photo_invalid_extension(tmp_path):
         plant_id = _make_plant(client, AUTH_HEADERS)
         r = _upload_photo(client, plant_id, AUTH_HEADERS, filename="notes.txt", content_type="text/plain")
     assert r.status_code == 400
+
+
+def test_upload_photo_rejects_spoofed_content(tmp_path):
+    """A file with an image extension but non-image content is rejected."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, AUTH_HEADERS, content=b"not really an image")
+    assert r.status_code == 400
+    assert "not a valid image" in r.json()["detail"].lower()
+
+
+def test_upload_photo_rejects_oversized_file(tmp_path):
+    """A file exceeding MAX_UPLOAD_BYTES is rejected with 413."""
+    os.environ["MAX_UPLOAD_BYTES"] = "1024"
+    try:
+        app, _, _ = load_app(tmp_path)
+        with TestClient(app) as client:
+            plant_id = _make_plant(client, AUTH_HEADERS)
+            oversized = JPEG_BYTES + b"\x00" * 2048
+            r = _upload_photo(client, plant_id, AUTH_HEADERS, content=oversized)
+        assert r.status_code == 413
+    finally:
+        os.environ.pop("MAX_UPLOAD_BYTES", None)
 
 
 def test_delete_photo(tmp_path):
@@ -738,7 +767,7 @@ def test_upload_photo_with_caption(tmp_path):
         plant_id = _make_plant(client, AUTH_HEADERS)
         r = client.post(
             f"/plants/{plant_id}/photos",
-            files={"file": ("plant.jpg", b"fake-image", "image/jpeg")},
+            files={"file": ("plant.jpg", JPEG_BYTES, "image/jpeg")},
             data={"caption": "First leaves!"},
             headers=AUTH_HEADERS,
         )
@@ -759,7 +788,7 @@ def test_list_all_photos_endpoint(tmp_path):
         _upload_photo(client, plant_a, AUTH_HEADERS)
         client.post(
             f"/plants/{plant_b}/photos",
-            files={"file": ("mint.jpg", b"fake-image", "image/jpeg")},
+            files={"file": ("mint.jpg", JPEG_BYTES, "image/jpeg")},
             data={"caption": "Thriving"},
             headers=AUTH_HEADERS,
         )
@@ -786,3 +815,142 @@ def test_list_all_photos_isolated_per_user(tmp_path):
     assert len(r_user.json()) == 1
     assert len(r_other.json()) == 1
     assert r_user.json()[0]["plant_name"] == "Basil"
+
+
+# ---------------------------------------------------------------------------
+# Social — discovery, follow/unfollow, profile, gallery, feed
+# ---------------------------------------------------------------------------
+
+def _user_id_of(client: TestClient, headers: dict) -> int:
+    """Materialize a user (get_current_user auto-creates) and return its DB id."""
+    return client.post("/plants", json=PLANT_PAYLOAD, headers=headers).json()["user_id"]
+
+
+def test_social_requires_auth(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        assert client.get("/users").status_code == 401
+        assert client.get("/feed").status_code == 401
+        assert client.post("/users/1/follow").status_code == 401
+
+
+def test_discover_users_excludes_self_lists_others(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        other_id = _user_id_of(client, OTHER_HEADERS)
+        r = client.get("/users", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    users = r.json()
+    ids = [u["id"] for u in users]
+    assert other_id in ids
+    assert all(not u["is_self"] for u in users)
+    other = next(u for u in users if u["id"] == other_id)
+    assert other["display_name"] == "other"  # derived from other@example.com
+    assert other["is_following"] is False
+
+
+def test_discover_users_search_by_handle(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        _user_id_of(client, OTHER_HEADERS)
+        r = client.get("/users?q=other", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    handles = [u["display_name"] for u in r.json()]
+    assert handles == ["other"]
+
+
+def test_follow_and_unfollow_flow(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        other_id = _user_id_of(client, OTHER_HEADERS)
+
+        # follow
+        assert client.post(f"/users/{other_id}/follow", headers=AUTH_HEADERS).status_code == 204
+        profile = client.get(f"/users/{other_id}", headers=AUTH_HEADERS).json()
+        assert profile["is_following"] is True
+        assert profile["follower_count"] == 1
+
+        # following twice is idempotent
+        assert client.post(f"/users/{other_id}/follow", headers=AUTH_HEADERS).status_code == 204
+        assert client.get(f"/users/{other_id}", headers=AUTH_HEADERS).json()["follower_count"] == 1
+
+        # unfollow
+        assert client.delete(f"/users/{other_id}/follow", headers=AUTH_HEADERS).status_code == 204
+        profile = client.get(f"/users/{other_id}", headers=AUTH_HEADERS).json()
+        assert profile["is_following"] is False
+        assert profile["follower_count"] == 0
+
+
+def test_cannot_follow_self(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        my_id = _user_id_of(client, AUTH_HEADERS)
+        r = client.post(f"/users/{my_id}/follow", headers=AUTH_HEADERS)
+    assert r.status_code == 400
+
+
+def test_follow_nonexistent_user_404(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        r = client.post("/users/9999/follow", headers=AUTH_HEADERS)
+    assert r.status_code == 404
+
+
+def test_user_gallery_is_public(tmp_path):
+    """Any authenticated user can view another user's gallery (public-by-default)."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        other_id = _user_id_of(client, OTHER_HEADERS)
+        other_plant = client.get("/plants", headers=OTHER_HEADERS).json()[0]["id"]
+        client.post(
+            f"/plants/{other_plant}/photos",
+            files={"file": ("p.jpg", JPEG_BYTES, "image/jpeg")},
+            data={"caption": "my fern"},
+            headers=OTHER_HEADERS,
+        )
+        r = client.get(f"/users/{other_id}/gallery", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    gallery = r.json()
+    assert len(gallery) == 1
+    assert gallery[0]["caption"] == "my fern"
+    assert gallery[0]["plant_name"] == "Basil"
+
+
+def test_feed_shows_followed_users_photos(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        other_id = _user_id_of(client, OTHER_HEADERS)
+        other_plant = client.get("/plants", headers=OTHER_HEADERS).json()[0]["id"]
+        client.post(
+            f"/plants/{other_plant}/photos",
+            files={"file": ("p.jpg", JPEG_BYTES, "image/jpeg")},
+            data={"caption": "feed photo"},
+            headers=OTHER_HEADERS,
+        )
+
+        # before following: empty feed
+        assert client.get("/feed", headers=AUTH_HEADERS).json() == []
+
+        # after following: photo appears with owner info
+        client.post(f"/users/{other_id}/follow", headers=AUTH_HEADERS)
+        feed = client.get("/feed", headers=AUTH_HEADERS).json()
+    assert len(feed) == 1
+    assert feed[0]["caption"] == "feed photo"
+    assert feed[0]["owner_id"] == other_id
+    assert feed[0]["owner_display_name"] == "other"
+
+
+def test_feed_excludes_unfollowed_and_own_photos(tmp_path):
+    """The feed shows only followed users — not yourself, not strangers."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        my_plant = _make_plant(client, AUTH_HEADERS)
+        _upload_photo(client, my_plant, AUTH_HEADERS)  # my own photo
+        _user_id_of(client, OTHER_HEADERS)  # a stranger I don't follow
+        feed = client.get("/feed", headers=AUTH_HEADERS).json()
+    assert feed == []
