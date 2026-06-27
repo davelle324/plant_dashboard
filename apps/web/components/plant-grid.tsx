@@ -113,6 +113,11 @@ export function PlantGrid({ plants, reminders }: Props) {
     { key: "overdue", label: "Overdue" },
   ];
 
+  const filterCounts: Record<HealthFilter, number> = { all: plants.length, healthy: 0, "due-soon": 0, overdue: 0 };
+  for (const plant of plants) {
+    filterCounts[getHealthTier(plant, reminderMap.get(plant.id))]++;
+  }
+
   return (
     <div>
       {/* Search + filter row */}
@@ -135,7 +140,7 @@ export function PlantGrid({ plants, reminders }: Props) {
                   : "bg-white/10 text-cream/70 hover:bg-white/20"
               }`}
             >
-              {f.label}
+              {f.label}{f.key !== "all" && filterCounts[f.key] > 0 ? ` (${filterCounts[f.key]})` : ""}
             </button>
           ))}
         </div>
@@ -231,7 +236,7 @@ export function PlantGrid({ plants, reminders }: Props) {
 
       {/* Floating bulk-action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-2xl bg-ink px-5 py-3 shadow-soft ring-1 ring-white/10">
+        <div className="fixed inset-x-4 bottom-4 z-50 flex flex-wrap items-center gap-2 rounded-2xl bg-ink px-4 py-3 shadow-soft ring-1 ring-white/10 sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:gap-3 sm:px-5">
           <span className="text-sm font-medium text-cream/70">
             {selected.size} selected
           </span>

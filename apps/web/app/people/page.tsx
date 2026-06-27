@@ -23,12 +23,12 @@ export default async function PeoplePage({
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-8 md:px-10">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Community</p>
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Find people to follow</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <NavAccount />
           <ThemeToggle />
           <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">

@@ -60,17 +60,17 @@ export function PlantForm({ plant }: Props) {
   };
 
   return (
-    <form className="space-y-3 rounded-2xl border border-black/5 bg-white/75 p-4" onSubmit={onSubmit}>
+    <form className="space-y-3 rounded-2xl border border-black/5 bg-white/75 p-4 dark:border-white/10 dark:bg-white/5" onSubmit={onSubmit}>
       <div className="grid gap-3 md:grid-cols-2">
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-cream dark:placeholder:text-cream/40"
           placeholder="Plant name"
           value={form.name}
           onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
           required
         />
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-cream dark:placeholder:text-cream/40"
           placeholder="Species"
           value={form.species}
           onChange={(event) => setForm((current) => ({ ...current, species: event.target.value }))}
@@ -79,14 +79,14 @@ export function PlantForm({ plant }: Props) {
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_180px]">
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-cream dark:placeholder:text-cream/40"
           placeholder="Location"
           value={form.location}
           onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
           required
         />
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-ink"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink dark:border-white/10 dark:bg-white/10 dark:text-cream"
           type="number"
           min={1}
           max={365}

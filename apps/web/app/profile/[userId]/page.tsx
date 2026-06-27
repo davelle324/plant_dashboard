@@ -24,11 +24,11 @@ export default async function ProfilePage({ params }: { params: { userId: string
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-8 md:px-10">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/people" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
           ← All people
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <NavAccount />
           <ThemeToggle />
           <Link href="/" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
@@ -87,7 +87,7 @@ export default async function ProfilePage({ params }: { params: { userId: string
                   alt={photo.caption ?? photo.plant_name}
                   className="aspect-square w-full object-cover"
                 />
-                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs text-white sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                   <span className="block font-medium">{photo.plant_name}</span>
                   {photo.caption && <span className="block text-white/80">{photo.caption}</span>}
                 </figcaption>

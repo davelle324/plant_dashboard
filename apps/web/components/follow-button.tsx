@@ -41,13 +41,18 @@ export function FollowButton({ userId, displayName, initialFollowing }: Props) {
       type="button"
       disabled={isPending}
       onClick={toggle}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition disabled:opacity-60 ${
+      className={`group rounded-full px-4 py-1.5 text-sm font-medium transition disabled:opacity-60 ${
         following
-          ? "border border-black/10 bg-white/70 text-ink hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-cream"
+          ? "border border-black/10 bg-white/70 text-ink hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-cream dark:hover:border-rose-800 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
           : "bg-ink text-cream hover:bg-moss"
       }`}
     >
-      {isPending ? "…" : following ? "Following" : "Follow"}
+      {isPending ? "…" : following ? (
+        <>
+          <span className="group-hover:hidden">Following</span>
+          <span className="hidden group-hover:inline">Unfollow</span>
+        </>
+      ) : "Follow"}
     </button>
   );
 }

@@ -58,10 +58,10 @@ export function LogForm({ plantId, log }: Props) {
   };
 
   return (
-    <form className="space-y-3 rounded-2xl border border-black/5 bg-white/75 p-4" onSubmit={onSubmit}>
+    <form className="space-y-3 rounded-2xl border border-black/5 bg-white/75 p-4 dark:border-white/10 dark:bg-white/5" onSubmit={onSubmit}>
       <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
         <select
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink dark:border-white/10 dark:bg-white/10 dark:text-cream"
           value={type}
           onChange={(e) => setType(e.target.value as LogEntry["type"])}
         >
@@ -71,16 +71,16 @@ export function LogForm({ plantId, log }: Props) {
           <option value="notes">Notes</option>
         </select>
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm placeholder:text-slate-400"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-cream dark:placeholder:text-cream/40"
           placeholder="Optional note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Date &amp; time</label>
+        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Date &amp; time</label>
         <input
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink dark:border-white/10 dark:bg-white/10 dark:text-cream"
           type="datetime-local"
           value={datetime}
           onChange={(e) => setDatetime(e.target.value)}

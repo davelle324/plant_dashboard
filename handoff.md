@@ -109,7 +109,7 @@ Added via Alembic migration `dfd45601f9e6_add_follows_table`. Uses integer FKs t
 - [x] **Sentry** — error tracking configured for FastAPI + Next.js; startup banners show status (disabled/connected)
 
 ### Still needed
-- [ ] **Secrets audit** — confirm no `.env` files or keys are in git history.
+- [x] **Secrets audit** — git history contains only `.env.example` files; no real credentials committed. Verified with `git log --all --full-history -- "*.env*"` and `git log -S "SECRET_KEY|CLERK_SECRET|..."`.
 - [ ] **Health check on deploy target** — configure Render/Fly to use `/health`.
 - [ ] **Next.js 16 upgrade** — two `npm audit` advisories fixed only in Next 16 (breaking upgrade, low current exposure; track as separate effort).
 
@@ -143,17 +143,36 @@ See README.md for setup scripts, environment variables, and test commands. Brief
 
 ---
 
-## Potential Next Steps
+## Deployment (Free Tier Stack)
+
+The app is ready to deploy using entirely free services. See the deployment plan in `/home/davelle/.claude/plans/temporal-wibbling-kernighan.md` for detailed step-by-step instructions.
+
+**Stack:**
+- **Frontend**: Vercel (free tier, Next.js optimized, never sleeps)
+- **Backend**: Render (free tier, Docker-based, 15-min inactivity cold starts)
+- **Database**: Neon (free tier PostgreSQL-as-a-Service, 5 GB storage)
+- **Photo storage**: Cloudflare R2 (free tier, 10 GB, zero egress fees)
+- **Error tracking**: Sentry (already configured, 5k events/month free)
+- **Auth**: Clerk (already configured, 5k MAU free)
+- **Ollama/AI**: Disabled on production (test locally; API returns 503 if unavailable)
+
+**Cost:** $0 permanently (all services have free tiers sufficient for MVP testing)
+
+**Limitation:** Render free Web Service cold-starts after 15 min inactivity (~30s first request); subsequent requests normal speed. Acceptable for testing.
+
+---
+
+## Potential Next Steps (After MVP Testing)
 
 ### High value
-- **Deployment** — Vercel (web) + Render or Fly.io (API) + Neon (Postgres). App is MVP-complete; set Clerk keys, `DATABASE_URL`, `S3_BUCKET`, `SENTRY_DSN` in production env.
 - **Email reminders** — Daily/weekly digest via Resend or SendGrid. Data exists at `GET /reminders`; needs a cron calling `POST /reminders/send`.
+- **Scale beyond free tier** — When ready to go live: upgrade Render Web Service ($7/month), consider dedicated Ollama inference ($)
 
 ### Medium effort
 - **Vision AI** — Swap `qwen2.5:0.5b` for `moondream` or `llava:7b`. Base64-encode latest photo and pass as `"images"` in the Ollama payload. Frontend unchanged.
 - **RAG / embeddings** — Semantic search over plant history using `nomic-embed-text` + ChromaDB or FAISS.
 
 ### Polish
-- **Mobile layout** — Test and improve grids/cards at phone widths.
+- **Mobile layout** — Done: all page nav headers stack on mobile (`flex-wrap`), hover-only interactions (photo delete, captions) are always visible on touch screens, bulk action bar uses full-width layout on small phones, AI chat code block wraps.
 - **Background cron for reminders** — Celery + Redis or a simple cron endpoint for email/push.
 - **PWA / offline** — Service worker + manifest for mobile install + cached data viewing.

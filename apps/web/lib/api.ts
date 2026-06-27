@@ -19,7 +19,7 @@ export type LogInput = {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseHeaders: Record<string, string> = {};
 
-  if (init?.body) baseHeaders["Content-Type"] = "application/json";
+  if (typeof init?.body === "string") baseHeaders["Content-Type"] = "application/json";
 
   // Server-side: forward the incoming request's cookies so Clerk's session
   // cookie reaches the /api/[...path] route handler and auth() returns a userId.
@@ -128,8 +128,6 @@ export function uploadPhoto(plantId: number, file: File, caption?: string) {
   return request<Photo>(`/api/plants/${plantId}/photos`, {
     method: "POST",
     body: form as unknown as BodyInit,
-    // No Content-Type — browser sets it automatically with the correct boundary
-    headers: {}
   });
 }
 

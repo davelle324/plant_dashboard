@@ -18,12 +18,12 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-6 py-8 md:px-10">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Your plants, health, and reminders</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <NavAccount />
           <ThemeToggle />
           <Link href="/analytics" className="text-sm font-medium text-moss underline-offset-4 hover:underline dark:text-fern">
@@ -51,7 +51,7 @@ export default async function DashboardPage() {
           <h2 className="text-xl font-semibold text-ink dark:text-cream">Reminder queue</h2>
           <div className="mt-4 space-y-3">
             {reminders.map((item) => (
-              <div key={item.plant_id} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/30">
+              <Link key={item.plant_id} href={`/plant/${item.plant_id}`} className="block rounded-2xl border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30 dark:hover:bg-amber-900/50">
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-ink dark:text-cream">{item.plant_name}</p>
                   <span className="text-sm font-semibold text-soil dark:text-amber-300">
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                   {item.days_since_last_care} days since last care
                 </p>
-              </div>
+              </Link>
             ))}
             {reminders.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-black/10 p-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">

@@ -66,7 +66,7 @@ export function AiChat({ plantId }: Props) {
       <p className="text-xs text-slate-400">
         Powered by Ollama ({process.env.NEXT_PUBLIC_AI_MODEL ?? "qwen2.5:0.5b"}).
         Pull the model first:{" "}
-        <code className="font-mono">docker exec plants-ollama-1 ollama pull qwen2.5:0.5b</code>
+        <code className="break-all font-mono">docker exec plants-ollama-1 ollama pull qwen2.5:0.5b</code>
       </p>
     </div>
   );

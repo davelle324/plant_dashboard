@@ -80,7 +80,7 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <div className="flex shrink-0 items-start gap-3 pt-1">
+        <div className="flex flex-wrap shrink-0 items-start gap-3 pt-1">
           <NavAccount />
           <ThemeToggle />
           <Link
@@ -165,14 +165,14 @@ export default async function HomePage() {
                 key={r.plant_id}
                 className="flex items-center justify-between gap-4 rounded-2xl bg-white/80 p-4"
               >
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-ink">{r.plant_name}</p>
+                <Link href={`/plant/${r.plant_id}`} className="group min-w-0 flex-1">
+                  <p className="truncate font-medium text-ink group-hover:underline group-hover:underline-offset-2">{r.plant_name}</p>
                   <p className="mt-0.5 text-sm text-slate-500">
                     {r.days_since_last_care === 0
                       ? "No care logged yet"
                       : `${r.days_since_last_care}d since last care`}
                   </p>
-                </div>
+                </Link>
                 <QuickWaterButton plantId={r.plant_id} plantName={r.plant_name} />
               </div>
             ))}

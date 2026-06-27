@@ -57,11 +57,11 @@ function PhotoCard({
         className="aspect-square w-full object-cover"
       />
 
-      {/* Delete button */}
+      {/* Delete button — always visible on touch screens, hover-only on desktop */}
       <button
         type="button"
         onClick={onDelete}
-        className="absolute right-2 top-2 hidden rounded-full bg-black/60 px-2 py-1 text-xs text-white group-hover:block"
+        className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white sm:hidden sm:group-hover:block"
       >
         Delete
       </button>
@@ -110,7 +110,7 @@ function PhotoCard({
             {photo.caption ? (
               <span className="block text-xs text-white">{photo.caption}</span>
             ) : (
-              <span className="block text-xs text-white/50 opacity-0 transition group-hover:opacity-100">
+              <span className="block text-xs text-white/50 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                 Add caption…
               </span>
             )}

@@ -24,6 +24,7 @@ A full-stack plant care tracker with AI assistance and photo uploads.
 - **Error tracking** — Sentry integration for FastAPI and Next.js (optional; disabled by default; set `SENTRY_DSN` to enable)
 - **Service status banners** — startup logs clearly show which services are connected (Sentry, S3/R2, Clerk) and whether running in local/dev mode
 - No-auth local dev mode — no Clerk keys required to run
+- **Mobile-friendly** — all pages and nav bars are responsive; touch-accessible delete buttons and photo captions
 
 ## Running locally
 
@@ -164,6 +165,25 @@ cd apps/web
 npm run test:e2e        # headless
 npm run test:e2e:ui     # Playwright UI
 ```
+
+## Deployment (Free Tier)
+
+The app is ready to deploy using entirely free services. **Complete step-by-step deployment guide:** See `handoff.md` → "Deployment (Free Tier Stack)".
+
+**Quick overview:**
+- **Frontend:** Vercel (free, Next.js native)
+- **Backend:** Render (free Web Service, ~30s cold start after 15 min inactivity)
+- **Database:** Neon (free PostgreSQL, 5 GB)
+- **Photos:** Cloudflare R2 (free, 10 GB, zero egress)
+- **Auth:** Clerk (free tier, 5k MAU)
+- **Errors:** Sentry (free tier, 5k events/month)
+- **AI:** Ollama disabled on production (test locally)
+
+**Cost:** $0 (all free tiers sufficient for MVP testing)
+
+**Time to deploy:** ~20 minutes (mostly account creation + env var setup)
+
+
 
 ## Tech stack
 

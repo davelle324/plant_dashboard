@@ -38,9 +38,9 @@ export function DashboardGallery({ photos }: Props) {
             <p className="truncate text-xs font-medium text-white">{photo.plant_name}</p>
           </div>
 
-          {/* Caption overlay — appears on hover, above the plant name strip */}
+          {/* Caption overlay — always visible on touch screens, hover-only on desktop */}
           {photo.caption && (
-            <div className="absolute inset-x-0 bottom-7 hidden bg-black/60 px-3 py-2 text-xs text-white/90 group-hover:block">
+            <div className="absolute inset-x-0 bottom-7 bg-black/60 px-3 py-2 text-xs text-white/90 sm:hidden sm:group-hover:block">
               {photo.caption}
             </div>
           )}

@@ -27,12 +27,12 @@ export default async function AnalyticsPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-8 md:px-10">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-moss dark:text-fern">Analytics</p>
           <h1 className="mt-2 text-3xl font-semibold text-ink dark:text-cream">Usage analytics</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <NavAccount />
           <ThemeToggle />
           <Link href="/dashboard" className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-sm font-medium text-ink transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-cream dark:hover:bg-white/10">
