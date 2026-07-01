@@ -19,11 +19,61 @@ dependencies = [
   "sentry-sdk[fastapi]>=2.63.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=7.1.0",
+    "pylint>=4.0.6",
+]
+
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 filterwarnings = [
   # SQLAlchemy uses datetime.utcnow() internally; not our code to fix.
   "ignore::DeprecationWarning:sqlalchemy",
 ]
+addopts = "--cov=app --cov-branch --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
+partial_branches = [
+    "pragma: no branch",
+]
+
+[tool.pylint.main]
+source-roots = ["."]
+jobs = 1
+recursive = true
+ignore-paths = ["^alembic/.*$"]
+
+[tool.pylint.format]
+max-line-length = 130
+max-module-lines = 1500
+
+[tool.pylint.basic]
+good-names = "i,j,k,ex,Run,_,e,id,app,db,SessionLocal"
+no-docstring-rgx = "^(_|test_)"
+
+[tool.pylint.design]
+max-args = 8
+max-positional-arguments = 8
+max-attributes = 12
+min-public-methods = 0
+max-locals = 30
+
+[tool.pylint.messages_control]
+disable = ["not-callable"]
+
+[tool.pylint.similarities]
+min-similarity-lines = 6
 
 [tool.uvicorn]
 factory = false

@@ -1,3 +1,4 @@
+"""Database engine, session factory, and base class for SQLAlchemy models."""
 from __future__ import annotations
 
 import os
@@ -20,10 +21,11 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 class Base(DeclarativeBase):
-    pass
+    """Declarative base class for all ORM models."""
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Yield a database session and ensure it is closed after use."""
     db = SessionLocal()
     try:
         yield db

@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM models for users, plants, logs, photos, and follows."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -13,6 +14,8 @@ def _utcnow() -> datetime:
 
 
 class User(Base):
+    """A registered user account (backed by Clerk authentication)."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -35,8 +38,9 @@ class Follow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
 
-
 class Plant(Base):
+    """A plant belonging to a user."""
+
     __tablename__ = "plants"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -53,6 +57,8 @@ class Plant(Base):
 
 
 class Log(Base):
+    """A care-event log entry (watering, pruning, fertilizing, notes)."""
+
     __tablename__ = "logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -65,6 +71,8 @@ class Log(Base):
 
 
 class Photo(Base):
+    """A photo uploaded for a plant."""
+
     __tablename__ = "photos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

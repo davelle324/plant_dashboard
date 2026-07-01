@@ -1,3 +1,4 @@
+"""Pydantic schemas for request/response validation and serialisation."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,6 +10,8 @@ LogType = Literal["watering", "pruning", "fertilizing", "notes"]
 
 
 class PlantBase(BaseModel):
+    """Shared fields for plant create/update requests."""
+
     name: str = Field(max_length=100)
     species: str = Field(max_length=100)
     location: str = Field(max_length=100)
@@ -16,14 +19,16 @@ class PlantBase(BaseModel):
 
 
 class PlantCreate(PlantBase):
-    pass
+    """Payload for creating a new plant."""
 
 
 class PlantUpdate(PlantBase):
-    pass
+    """Payload for updating an existing plant."""
 
 
 class PlantRead(PlantBase):
+    """Plant data returned in API responses."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -33,20 +38,28 @@ class PlantRead(PlantBase):
 
 
 class LogBase(BaseModel):
+    """Shared fields for log create/update requests."""
+
     plant_id: int
     type: LogType
     note: str | None = Field(None, max_length=2000)
 
 
 class LogCreate(LogBase):
+    """Payload for creating a new care log entry."""
+
     created_at: datetime | None = None
 
 
 class LogUpdate(LogBase):
+    """Payload for updating an existing care log entry."""
+
     created_at: datetime | None = None
 
 
 class LogRead(LogBase):
+    """Log data returned in API responses."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -54,6 +67,8 @@ class LogRead(LogBase):
 
 
 class ReminderRead(BaseModel):
+    """A watering reminder for a single plant."""
+
     plant_id: int
     plant_name: str
     days_since_last_care: int
@@ -62,6 +77,8 @@ class ReminderRead(BaseModel):
 
 
 class PhotoRead(BaseModel):
+    """Photo data returned in API responses."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -72,33 +89,47 @@ class PhotoRead(BaseModel):
 
 
 class PhotoCaptionUpdate(BaseModel):
+    """Payload for updating a photo caption."""
+
     caption: str | None = Field(None, max_length=500)
 
 
 class PhotoWithPlant(PhotoRead):
+    """Photo with its associated plant name (used in gallery endpoints)."""
+
     plant_name: str
 
 
 class AskRequest(BaseModel):
+    """Payload for an AI care question."""
+
     plant_id: int
     question: str = Field(max_length=500)
 
 
 class AskResponse(BaseModel):
+    """AI answer returned by the /ai/ask endpoint."""
+
     answer: str
 
 
 class WeeklyCount(BaseModel):
+    """Care event count for a single ISO week."""
+
     week: str
     count: int
 
 
 class WateringInterval(BaseModel):
+    """Days between two consecutive watering events."""
+
     date: str
     days: int
 
 
 class PlantStat(BaseModel):
+    """Per-plant analytics summary."""
+
     plant_id: int
     plant_name: str
     total_logs: int
@@ -109,6 +140,8 @@ class PlantStat(BaseModel):
 
 
 class AnalyticsRead(BaseModel):
+    """Full analytics response for the current user."""
+
     total_plants: int
     total_logs: int
     total_photos: int

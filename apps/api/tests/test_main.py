@@ -1,14 +1,19 @@
+"""End-to-end tests for the Plant Care FastAPI application."""
+# pylint: disable=import-outside-toplevel
 from __future__ import annotations
 
 import importlib
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import httpx
 from fastapi.testclient import TestClient
 
 AUTH_HEADERS = {"x-clerk-user-id": "user_123", "x-clerk-user-email": "user@example.com"}
 OTHER_HEADERS = {"x-clerk-user-id": "user_456", "x-clerk-user-email": "other@example.com"}
+NOEMAIL_HEADERS = {"x-clerk-user-id": "user_noemail"}
 
 PLANT_PAYLOAD = {
     "name": "Basil",
@@ -19,6 +24,7 @@ PLANT_PAYLOAD = {
 
 
 def load_app(tmp_path: Path):
+    """Configure env for a fresh in-memory SQLite database and reload the app."""
     os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'test.db'}"
     os.environ["UPLOAD_DIR"] = str(tmp_path / "uploads")
     # Force local disk storage — prevents load_dotenv() from picking up a real
@@ -26,6 +32,8 @@ def load_app(tmp_path: Path):
     os.environ["S3_BUCKET"] = ""
     # Disable Sentry in tests — prevents real events being sent to the dashboard.
     os.environ["SENTRY_DSN"] = ""
+    # Disable internal secret check — .env sets this but tests use plain headers.
+    os.environ["INTERNAL_API_SECRET"] = ""
 
     import app.db as db_module
     import app.models as models_module
@@ -413,6 +421,8 @@ def test_cors_allows_local_web_origin(tmp_path):
 # Minimal valid image payloads (real magic bytes) for upload tests.
 JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 16
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+GIF_BYTES = b"GIF89a" + b"\x00" * 20
+WEBP_BYTES = b"RIFF" + b"\x00\x00\x00\x00" + b"WEBP" + b"\x00" * 10
 
 
 def _upload_photo(
@@ -669,7 +679,6 @@ def test_analytics_isolated_per_user(tmp_path):
 
 
 def test_analytics_avg_days_between_waterings(tmp_path):
-    from datetime import datetime, timedelta, timezone
     app, db_module, main_module = load_app(tmp_path)
     with TestClient(app) as client:
         plant_id = _make_plant(client, AUTH_HEADERS)
@@ -735,7 +744,7 @@ def test_analytics_watering_intervals_empty_for_single_watering(tmp_path):
 
 def test_reminders_all_param_includes_non_overdue(tmp_path):
     """?all=true returns every plant's reminder row, not just overdue ones."""
-    app, db_module, main_module = load_app(tmp_path)
+    app, _, _ = load_app(tmp_path)
     with TestClient(app) as client:
         plant_id = _make_plant(client, AUTH_HEADERS)
 
@@ -989,3 +998,195 @@ def test_feed_excludes_unfollowed_and_own_photos(tmp_path):
         _user_id_of(client, OTHER_HEADERS)  # a stranger I don't follow
         feed = client.get("/feed", headers=AUTH_HEADERS).json()
     assert feed == []
+
+
+# ---------------------------------------------------------------------------
+# Image type coverage — PNG, GIF, WEBP magic bytes
+# ---------------------------------------------------------------------------
+
+def test_upload_png_photo(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, AUTH_HEADERS, filename="plant.png", content=PNG_BYTES, content_type="image/png")
+    assert r.status_code == 201
+
+
+def test_upload_gif_photo(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, AUTH_HEADERS, filename="anim.gif", content=GIF_BYTES, content_type="image/gif")
+    assert r.status_code == 201
+
+
+def test_upload_webp_photo(tmp_path):
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        r = _upload_photo(client, plant_id, AUTH_HEADERS, filename="photo.webp", content=WEBP_BYTES, content_type="image/webp")
+    assert r.status_code == 201
+
+
+# ---------------------------------------------------------------------------
+# INTERNAL_API_SECRET enforcement
+# ---------------------------------------------------------------------------
+
+def test_internal_secret_required_when_set(tmp_path):
+    """When INTERNAL_API_SECRET is set, requests without x-internal-secret are rejected."""
+    app, _, main_module = load_app(tmp_path)
+    main_module.INTERNAL_API_SECRET = "supersecret"
+    try:
+        with TestClient(app) as client:
+            r = client.get("/plants", headers=AUTH_HEADERS)
+        assert r.status_code == 401
+    finally:
+        main_module.INTERNAL_API_SECRET = ""
+
+
+def test_internal_secret_correct_allows_access(tmp_path):
+    """When INTERNAL_API_SECRET is set and the correct header is provided, the request proceeds."""
+    app, _, main_module = load_app(tmp_path)
+    main_module.INTERNAL_API_SECRET = "supersecret"
+    try:
+        with TestClient(app) as client:
+            r = client.get("/plants", headers={**AUTH_HEADERS, "x-internal-secret": "supersecret"})
+        assert r.status_code == 200
+    finally:
+        main_module.INTERNAL_API_SECRET = ""
+
+
+# ---------------------------------------------------------------------------
+# Log — update with explicit created_at
+# ---------------------------------------------------------------------------
+
+def test_update_log_with_created_at(tmp_path):
+    """PUT /logs/{id} with created_at in the payload updates the timestamp."""
+    app, _, _ = load_app(tmp_path)
+    past_time = datetime.now(timezone.utc) - timedelta(days=3)
+    with TestClient(app) as client:
+        plant_id = _make_plant(client, AUTH_HEADERS)
+        log_id = client.post(
+            "/logs", json={"plant_id": plant_id, "type": "watering"}, headers=AUTH_HEADERS
+        ).json()["id"]
+        r = client.put(
+            f"/logs/{log_id}",
+            json={"plant_id": plant_id, "type": "pruning", "created_at": past_time.isoformat()},
+            headers=AUTH_HEADERS,
+        )
+    assert r.status_code == 200
+    assert r.json()["type"] == "pruning"
+
+
+# ---------------------------------------------------------------------------
+# AI — success and error paths
+# ---------------------------------------------------------------------------
+
+def test_ai_ask_success(tmp_path):
+    """Successful Ollama call returns the answer."""
+    os.environ["OLLAMA_URL"] = "http://localhost:11434"
+    try:
+        app, _, _ = load_app(tmp_path)
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {"response": "Water more often!"}
+        with TestClient(app) as client:
+            plant_id = _make_plant(client, AUTH_HEADERS)
+            with patch("httpx.post", return_value=mock_resp):
+                r = client.post(
+                    "/ai/ask",
+                    json={"plant_id": plant_id, "question": "Is my plant healthy?"},
+                    headers=AUTH_HEADERS,
+                )
+        assert r.status_code == 200
+        assert r.json()["answer"] == "Water more often!"
+    finally:
+        os.environ.pop("OLLAMA_URL", None)
+
+
+def test_ai_ask_connect_error(tmp_path):
+    """A ConnectError from Ollama returns 503 with an informative message."""
+    os.environ["OLLAMA_URL"] = "http://localhost:11434"
+    try:
+        app, _, _ = load_app(tmp_path)
+        with TestClient(app) as client:
+            plant_id = _make_plant(client, AUTH_HEADERS)
+            with patch("httpx.post", side_effect=httpx.ConnectError("connection refused")):
+                r = client.post(
+                    "/ai/ask",
+                    json={"plant_id": plant_id, "question": "Hello?"},
+                    headers=AUTH_HEADERS,
+                )
+        assert r.status_code == 503
+        assert "not running" in r.json()["detail"].lower()
+    finally:
+        os.environ.pop("OLLAMA_URL", None)
+
+
+def test_ai_ask_http_status_error(tmp_path):
+    """An HTTP error from Ollama returns 503 with Ollama's message."""
+    os.environ["OLLAMA_URL"] = "http://localhost:11434"
+    try:
+        app, _, _ = load_app(tmp_path)
+        mock_ollama_resp = MagicMock()
+        mock_ollama_resp.text = "Model not found"
+        err = httpx.HTTPStatusError("404", request=MagicMock(), response=mock_ollama_resp)
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.side_effect = err
+        with TestClient(app) as client:
+            plant_id = _make_plant(client, AUTH_HEADERS)
+            with patch("httpx.post", return_value=mock_resp):
+                r = client.post(
+                    "/ai/ask",
+                    json={"plant_id": plant_id, "question": "Hello?"},
+                    headers=AUTH_HEADERS,
+                )
+        assert r.status_code == 503
+        assert "model not found" in r.json()["detail"].lower()
+    finally:
+        os.environ.pop("OLLAMA_URL", None)
+
+
+def test_ai_ask_generic_error(tmp_path):
+    """An unexpected exception from Ollama returns 503."""
+    os.environ["OLLAMA_URL"] = "http://localhost:11434"
+    try:
+        app, _, _ = load_app(tmp_path)
+        with TestClient(app) as client:
+            plant_id = _make_plant(client, AUTH_HEADERS)
+            with patch("httpx.post", side_effect=RuntimeError("unexpected")):
+                r = client.post(
+                    "/ai/ask",
+                    json={"plant_id": plant_id, "question": "Hello?"},
+                    headers=AUTH_HEADERS,
+                )
+        assert r.status_code == 503
+        assert "unavailable" in r.json()["detail"].lower()
+    finally:
+        os.environ.pop("OLLAMA_URL", None)
+
+
+# ---------------------------------------------------------------------------
+# Social — display_name fallback and unfollow no-op
+# ---------------------------------------------------------------------------
+
+def test_display_name_without_email(tmp_path):
+    """_display_name falls back to clerk_user_id when a user has no email."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        noemail_id = client.post("/plants", json=PLANT_PAYLOAD, headers=NOEMAIL_HEADERS).json()["user_id"]
+        r = client.get("/users", headers=AUTH_HEADERS)
+    assert r.status_code == 200
+    noemail_user = next(u for u in r.json() if u["id"] == noemail_id)
+    assert noemail_user["display_name"] == "user_noemail"
+
+
+def test_unfollow_when_not_following(tmp_path):
+    """Unfollowing a user you don't follow is a no-op (204, not an error)."""
+    app, _, _ = load_app(tmp_path)
+    with TestClient(app) as client:
+        _user_id_of(client, AUTH_HEADERS)
+        other_id = _user_id_of(client, OTHER_HEADERS)
+        r = client.delete(f"/users/{other_id}/follow", headers=AUTH_HEADERS)
+    assert r.status_code == 204

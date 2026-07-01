@@ -1,10 +1,14 @@
+"""FastAPI application — plants, logs, photos, analytics, social, and AI features."""
 from __future__ import annotations
 
+# load_dotenv() must run before importing app.db, which reads DATABASE_URL at import time.
+# pylint: disable=wrong-import-position,wrong-import-order
 import os
 
 from dotenv import load_dotenv
 
 load_dotenv()  # loads apps/api/.env when present; no-op if missing or in production
+
 import secrets
 import time
 import uuid
@@ -14,11 +18,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
+import sentry_sdk
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -59,7 +63,7 @@ ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 
 _sentry_dsn = os.getenv("SENTRY_DSN", "")
-if _sentry_dsn:
+if _sentry_dsn:  # pragma: no cover
     sentry_sdk.init(
         dsn=_sentry_dsn,
         integrations=[FastApiIntegration(), SqlalchemyIntegration()],
@@ -72,13 +76,13 @@ storage = get_storage()
 # ── Service status banner ────────────────────────────────────────────────────
 print("")
 print("  ┌─ Plant Care API ───────────────────────────────────────────┐")
-if _sentry_dsn:
+if _sentry_dsn:  # pragma: no cover
     print(f"  │  Sentry  : connected ({_sentry_dsn[:38]}...)")
 else:
     print("  │  Sentry  : disabled  (set SENTRY_DSN to enable)")
 if isinstance(storage, LocalStorage):
     print(f"  │  Storage : local disk ({os.getenv('UPLOAD_DIR', '/uploads')})")
-else:
+else:  # pragma: no cover
     print(f"  │  Storage : S3 — bucket={os.getenv('S3_BUCKET')}  endpoint={os.getenv('S3_ENDPOINT_URL', 'AWS S3')}")
 print("  └────────────────────────────────────────────────────────────┘")
 print("")
@@ -106,8 +110,9 @@ limiter = Limiter(key_func=_rate_limit_key)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001
-    if isinstance(storage, LocalStorage):
+async def lifespan(_: FastAPI):
+    """Bootstrap storage directory and DB schema, then run the app."""
+    if isinstance(storage, LocalStorage):  # pragma: no branch
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     # Schema is owned by Alembic in production (`alembic upgrade head` runs at deploy).
     # create_all() remains as a zero-config bootstrap for local dev and the test suite,
@@ -117,10 +122,10 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
         try:
             Base.metadata.create_all(bind=engine)
             break
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover  # pylint: disable=broad-exception-caught
             last_error = exc
             time.sleep(1)
-    else:
+    else:  # pragma: no cover
         if last_error is not None:
             raise last_error
     yield
@@ -149,6 +154,7 @@ app.add_middleware(
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """Resolve the Clerk-authenticated user, creating a DB row on first login."""
     if INTERNAL_API_SECRET:
         provided = request.headers.get("x-internal-secret", "")
         if not secrets.compare_digest(provided, INTERNAL_API_SECRET):
@@ -172,6 +178,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 def plant_or_404(db: Session, plant_id: int, user_id: int) -> Plant:
+    """Return the plant owned by user_id or raise 404."""
     plant = db.scalar(select(Plant).where(Plant.id == plant_id, Plant.user_id == user_id))
     if plant is None:
         raise HTTPException(status_code=404, detail="Plant not found")
@@ -179,6 +186,7 @@ def plant_or_404(db: Session, plant_id: int, user_id: int) -> Plant:
 
 
 def log_or_404(db: Session, log_id: int, user_id: int) -> Log:
+    """Return the log belonging to user_id's plant or raise 404."""
     log = db.scalar(select(Log).join(Plant).where(Log.id == log_id, Plant.user_id == user_id))
     if log is None:
         raise HTTPException(status_code=404, detail="Log not found")
@@ -186,6 +194,7 @@ def log_or_404(db: Session, log_id: int, user_id: int) -> Log:
 
 
 def photo_or_404(db: Session, photo_id: int, user_id: int) -> Photo:
+    """Return the photo belonging to user_id's plant or raise 404."""
     photo = db.scalar(select(Photo).join(Plant).where(Photo.id == photo_id, Plant.user_id == user_id))
     if photo is None:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -194,6 +203,7 @@ def photo_or_404(db: Session, photo_id: int, user_id: int) -> Photo:
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """Return a simple liveness probe response."""
     return {"status": "ok"}
 
 
@@ -201,10 +211,11 @@ def health() -> dict[str, str]:
 # of backend: local disk is served by StaticFiles; S3 redirects to a presigned/CDN URL.
 if isinstance(storage, LocalStorage):
     app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), name="uploads")
-else:
+else:  # pragma: no cover
 
     @app.get("/uploads/{plant_id}/{filename}")
     def serve_upload(plant_id: int, filename: str) -> RedirectResponse:
+        """Redirect to the S3/CDN URL for a stored photo."""
         return RedirectResponse(storage.url(f"{plant_id}/{filename}"))
 
 
@@ -214,6 +225,7 @@ else:
 
 @app.get("/plants", response_model=list[PlantRead])
 def list_plants(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[Plant]:
+    """Return all plants for the current user with their latest photo attached."""
     plants = list(db.scalars(select(Plant).where(Plant.user_id == current_user.id).order_by(Plant.created_at.desc())).all())
     if plants:
         plant_ids = [p.id for p in plants]
@@ -232,6 +244,7 @@ def list_plants(db: Session = Depends(get_db), current_user: User = Depends(get_
 
 @app.post("/plants", response_model=PlantRead, status_code=201)
 def create_plant(payload: PlantCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Plant:
+    """Create a new plant for the current user."""
     plant = Plant(**payload.model_dump(), user_id=current_user.id)
     db.add(plant)
     db.commit()
@@ -241,11 +254,15 @@ def create_plant(payload: PlantCreate, db: Session = Depends(get_db), current_us
 
 @app.get("/plants/{plant_id}", response_model=PlantRead)
 def get_plant(plant_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Plant:
+    """Return a single plant by ID."""
     return plant_or_404(db, plant_id, current_user.id)
 
 
 @app.put("/plants/{plant_id}", response_model=PlantRead)
-def update_plant(plant_id: int, payload: PlantUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Plant:
+def update_plant(
+    plant_id: int, payload: PlantUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> Plant:
+    """Replace all fields on an existing plant."""
     plant = plant_or_404(db, plant_id, current_user.id)
     for key, value in payload.model_dump().items():
         setattr(plant, key, value)
@@ -256,6 +273,7 @@ def update_plant(plant_id: int, payload: PlantUpdate, db: Session = Depends(get_
 
 @app.delete("/plants/{plant_id}", status_code=204)
 def delete_plant(plant_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> None:
+    """Delete a plant and cascade-remove its logs and photos."""
     plant = plant_or_404(db, plant_id, current_user.id)
     db.delete(plant)
     db.commit()
@@ -267,12 +285,14 @@ def delete_plant(plant_id: int, db: Session = Depends(get_db), current_user: Use
 
 @app.get("/plants/{plant_id}/logs", response_model=list[LogRead])
 def list_logs(plant_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Sequence[Log]:
+    """Return all care logs for a plant, newest first."""
     plant_or_404(db, plant_id, current_user.id)
     return db.scalars(select(Log).where(Log.plant_id == plant_id).order_by(Log.created_at.desc())).all()
 
 
 @app.post("/logs", response_model=LogRead, status_code=201)
 def create_log(payload: LogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Log:
+    """Create a care log entry for a plant."""
     plant_or_404(db, payload.plant_id, current_user.id)
     log = Log(
         **payload.model_dump(exclude={"created_at"}),
@@ -285,7 +305,10 @@ def create_log(payload: LogCreate, db: Session = Depends(get_db), current_user: 
 
 
 @app.put("/logs/{log_id}", response_model=LogRead)
-def update_log(log_id: int, payload: LogUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Log:
+def update_log(
+    log_id: int, payload: LogUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> Log:
+    """Update the type, note, or timestamp of a care log entry."""
     log = log_or_404(db, log_id, current_user.id)
     plant_or_404(db, payload.plant_id, current_user.id)
     for key, value in payload.model_dump(exclude={"created_at"}).items():
@@ -299,6 +322,7 @@ def update_log(log_id: int, payload: LogUpdate, db: Session = Depends(get_db), c
 
 @app.delete("/logs/{log_id}", status_code=204)
 def delete_log(log_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> None:
+    """Delete a care log entry."""
     log = log_or_404(db, log_id, current_user.id)
     db.delete(log)
     db.commit()
@@ -310,13 +334,14 @@ def delete_log(log_id: int, db: Session = Depends(get_db), current_user: User = 
 
 @app.get("/plants/{plant_id}/photos", response_model=list[PhotoRead])
 def list_photos(plant_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Sequence[Photo]:
+    """Return all photos for a plant, newest first."""
     plant_or_404(db, plant_id, current_user.id)
     return db.scalars(select(Photo).where(Photo.plant_id == plant_id).order_by(Photo.created_at.desc())).all()
 
 
 @app.post("/plants/{plant_id}/photos", response_model=PhotoRead, status_code=201)
 @limiter.limit("20/minute")
-async def upload_photo(
+async def upload_photo(  # pylint: disable=unused-argument
     request: Request,
     plant_id: int,
     file: UploadFile = File(...),
@@ -324,6 +349,7 @@ async def upload_photo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Photo:
+    """Validate and store an uploaded photo, enforcing size and magic-byte checks."""
     plant_or_404(db, plant_id, current_user.id)
 
     ext = Path(file.filename or "").suffix.lower()
@@ -352,6 +378,7 @@ async def upload_photo(
 
 @app.delete("/photos/{photo_id}", status_code=204)
 def delete_photo(photo_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> None:
+    """Delete a photo from storage and the database."""
     photo = photo_or_404(db, photo_id, current_user.id)
     storage.delete(f"{photo.plant_id}/{photo.filename}")
     db.delete(photo)
@@ -365,6 +392,7 @@ def update_photo_caption(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Photo:
+    """Update the caption on an existing photo."""
     photo = photo_or_404(db, photo_id, current_user.id)
     photo.caption = payload.caption
     db.commit()
@@ -374,6 +402,7 @@ def update_photo_caption(
 
 @app.get("/photos", response_model=list[PhotoWithPlant])
 def list_all_photos(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[PhotoWithPlant]:
+    """Return all photos for the current user across all plants, newest first."""
     rows = db.execute(
         select(Photo, Plant.name)
         .join(Plant, Photo.plant_id == Plant.id)
@@ -404,7 +433,8 @@ def _utc(dt: datetime) -> datetime:
 
 
 @app.get("/analytics", response_model=AnalyticsRead)
-def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AnalyticsRead:
+def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AnalyticsRead:  # pylint: disable=too-many-locals
+    """Compute care-activity analytics across all of the user's plants."""
     plants = list(db.scalars(select(Plant).where(Plant.user_id == current_user.id)).all())
     plant_ids = [p.id for p in plants]
 
@@ -417,8 +447,7 @@ def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(ge
     # Counts by log type
     logs_by_type: dict[str, int] = {"watering": 0, "fertilizing": 0, "pruning": 0, "notes": 0}
     for log in all_logs:
-        if log.type in logs_by_type:
-            logs_by_type[log.type] += 1
+        logs_by_type[log.type] += 1
 
     # Care events per week for the last 12 weeks
     now = datetime.now(timezone.utc)
@@ -481,6 +510,7 @@ def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(ge
 # ---------------------------------------------------------------------------
 
 def reminder_rows(db: Session, user_id: int) -> list[ReminderRead]:
+    """Build watering-reminder rows for every plant owned by user_id."""
     plants = db.scalars(select(Plant).where(Plant.user_id == user_id)).all()
     reminders: list[ReminderRead] = []
     now = datetime.now(timezone.utc)
@@ -490,9 +520,7 @@ def reminder_rows(db: Session, user_id: int) -> list[ReminderRead]:
             .where(Log.plant_id == plant.id, Log.type == "watering")
             .order_by(Log.created_at.desc())
         )
-        last_care = latest_log.created_at if latest_log else plant.created_at
-        if last_care.tzinfo is None:
-            last_care = last_care.replace(tzinfo=timezone.utc)
+        last_care = _utc(latest_log.created_at if latest_log else plant.created_at)
         days_since = max((now - last_care).days, 0)
         due_in_days = plant.watering_interval_days - days_since
         reminders.append(
@@ -509,10 +537,11 @@ def reminder_rows(db: Session, user_id: int) -> list[ReminderRead]:
 
 @app.get("/reminders", response_model=list[ReminderRead])
 def get_reminders(
-    all: bool = False,
+    all: bool = False,  # pylint: disable=redefined-builtin
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ReminderRead]:
+    """Return watering reminders; pass ?all=true to include non-overdue plants."""
     rows = reminder_rows(db, current_user.id)
     return rows if all else [row for row in rows if row.overdue]
 
@@ -523,7 +552,10 @@ def get_reminders(
 
 @app.post("/ai/ask", response_model=AskResponse)
 @limiter.limit("10/minute")
-def ask_ai(request: Request, payload: AskRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> AskResponse:
+def ask_ai(  # pylint: disable=unused-argument
+    request: Request, payload: AskRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> AskResponse:
+    """Forward a plant-care question to the local Ollama LLM and return the answer."""
     plant = plant_or_404(db, payload.plant_id, current_user.id)
 
     recent_logs = db.scalars(
@@ -556,12 +588,12 @@ def ask_ai(request: Request, payload: AskRequest, db: Session = Depends(get_db),
         )
         response.raise_for_status()
         return AskResponse(answer=response.json()["response"].strip())
-    except httpx.ConnectError:
-        raise HTTPException(status_code=503, detail="AI service is not running. Start Ollama and pull a model.")
+    except httpx.ConnectError as exc:
+        raise HTTPException(status_code=503, detail="AI service is not running. Start Ollama and pull a model.") from exc
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=503, detail=f"Ollama error: {exc.response.text}")
+        raise HTTPException(status_code=503, detail=f"Ollama error: {exc.response.text}") from exc
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"AI service unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=f"AI service unavailable: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -628,12 +660,13 @@ def discover_users(
 def get_user_profile(
     user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> PublicUserRead:
+    """Return the public profile for a single user."""
     target = _user_or_404(db, user_id)
     return _build_public_user(db, target, current_user)
 
 
 @app.get("/users/{user_id}/gallery", response_model=list[PhotoWithPlant])
-def get_user_gallery(
+def get_user_gallery(  # pylint: disable=unused-argument
     user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> list[PhotoWithPlant]:
     """Public gallery of a single user's photos (public-by-default visibility model)."""
@@ -661,6 +694,7 @@ def get_user_gallery(
 def follow_user(
     user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> None:
+    """Follow another user; idempotent if already following."""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You cannot follow yourself.")
     _user_or_404(db, user_id)
@@ -676,6 +710,7 @@ def follow_user(
 def unfollow_user(
     user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> None:
+    """Unfollow a user; idempotent if not currently following."""
     existing = db.scalar(
         select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
     )

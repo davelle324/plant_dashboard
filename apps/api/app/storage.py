@@ -25,11 +25,15 @@ UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/uploads"))
 
 @runtime_checkable
 class Storage(Protocol):
+    """Protocol for photo storage backends."""
+
     is_local: bool
 
-    def save(self, key: str, content: bytes, content_type: str | None = None) -> None: ...
+    def save(self, key: str, content: bytes, content_type: str | None = None) -> None:  # pragma: no cover
+        """Store *content* at *key*, optionally with a MIME content-type hint."""
 
-    def delete(self, key: str) -> None: ...
+    def delete(self, key: str) -> None:  # pragma: no cover
+        """Remove the object at *key*."""
 
 
 class LocalStorage:
@@ -38,17 +42,21 @@ class LocalStorage:
     is_local = True
 
     def __init__(self, base_dir: Path) -> None:
+        """Initialise with the root directory for uploads."""
         self.base_dir = base_dir
 
-    def save(self, key: str, content: bytes, content_type: str | None = None) -> None:
+    def save(self, key: str, content: bytes, content_type: str | None = None) -> None:  # pylint: disable=unused-argument
+        """Write *content* to disk at the path derived from *key*."""
         dest = self.base_dir / key
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
 
     def delete(self, key: str) -> None:
+        """Remove the file at *key*, ignoring missing files."""
         (self.base_dir / key).unlink(missing_ok=True)
 
     def path(self, key: str) -> Path:
+        """Return the absolute ``Path`` for *key*."""
         return self.base_dir / key
 
 
@@ -67,7 +75,8 @@ class S3Storage:
         secret_key: str | None,
         public_base_url: str | None = None,
     ) -> None:
-        import boto3  # imported lazily so local dev doesn't need boto3 installed
+        """Create an S3Storage backed by the given bucket and credentials."""
+        import boto3  # imported lazily so local dev doesn't need boto3 installed  # pylint: disable=import-outside-toplevel
 
         self.bucket = bucket
         self.public_base_url = public_base_url
@@ -80,13 +89,16 @@ class S3Storage:
         )
 
     def save(self, key: str, content: bytes, content_type: str | None = None) -> None:
+        """Upload *content* to S3 at *key*, optionally setting the content-type."""
         extra = {"ContentType": content_type} if content_type else {}
         self.client.put_object(Bucket=self.bucket, Key=key, Body=content, **extra)
 
     def delete(self, key: str) -> None:
+        """Delete the object at *key* from S3."""
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
     def url(self, key: str, expires: int = 3600) -> str:
+        """Return a URL for *key*: CDN URL if configured, otherwise a presigned GET URL."""
         # A public bucket / CDN domain serves objects directly; otherwise sign a
         # short-lived GET URL.
         if self.public_base_url:

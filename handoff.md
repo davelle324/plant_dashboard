@@ -137,7 +137,7 @@ See README.md for setup scripts, environment variables, and test commands. Brief
 ./run-local.sh     # Local: SQLite + native processes
 ```
 
-**Test:** `cd apps/api && uv run pytest tests/ -v` (66 tests)
+**Test:** `cd apps/api && uv run pytest tests/ -v` (80 tests, 100% branch coverage enforced)
 
 **Git:** `uv.lock`, `alembic/`, `alembic.ini` committed; `.venv/`, `uploads/`, `.env*` ignored.
 
@@ -162,6 +162,12 @@ The app is ready to deploy using entirely free services. See the deployment plan
 
 ---
 
+## CI
+
+GitHub Actions workflow at `.github/workflows/api-tests.yml` runs automatically on every push or PR that touches `apps/api/**`. It runs `uv run pytest -v` (100% coverage gate) and `uv run pylint app tests --score=yes` (must be 10.00/10.0). Only triggers when API files change — frontend-only pushes are ignored.
+
+---
+
 ## Potential Next Steps (After MVP Testing)
 
 ### High value
@@ -176,3 +182,15 @@ The app is ready to deploy using entirely free services. See the deployment plan
 - **Mobile layout** — Done: all page nav headers stack on mobile (`flex-wrap`), hover-only interactions (photo delete, captions) are always visible on touch screens, bulk action bar uses full-width layout on small phones, AI chat code block wraps.
 - **Background cron for reminders** — Celery + Redis or a simple cron endpoint for email/push.
 - **PWA / offline** — Service worker + manifest for mobile install + cached data viewing.
+
+---
+
+## Session History
+
+### 2026-07-01
+- Built full pytest test suite from scratch: 80 tests, 100% branch coverage, 10.00/10.0 pylint score
+- Added `pytest-cov` and `pylint` dev deps + full config to `pyproject.toml`
+- Fixed critical test env bug: `.env` had `INTERNAL_API_SECRET` set, causing all tests to 401; cleared in `load_app()` test helper
+- Added S3 mocked tests (`test_s3_storage_save_delete_and_presigned_url`) and non-SQLite DB branch test
+- Added module/class/function docstrings throughout all source files; fixed `raise-missing-from` violations
+- Added GitHub Actions CI workflow (`.github/workflows/api-tests.yml`) — triggers on `apps/api/**` changes
