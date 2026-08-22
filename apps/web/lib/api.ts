@@ -1,6 +1,9 @@
 import type { Analytics, FeedItem, LogEntry, Photo, PhotoWithPlant, Plant, PublicUser, Reminder } from "./types";
 
-const API_BASE_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") : "";
+const API_BASE_URL = typeof window === "undefined"
+  ? (process.env.NEXT_PUBLIC_APP_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"))
+  : "";
 
 export type PlantInput = {
   name: string;
