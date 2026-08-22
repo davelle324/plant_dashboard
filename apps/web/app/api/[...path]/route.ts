@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 
-const API_BASE_URL = process.env.API_INTERNAL_URL ?? "http://api:8000";
+const API_BASE_URL = (process.env.API_INTERNAL_URL ?? "http://api:8000").replace(/\/$/, "");
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const internalApiSecret = process.env.INTERNAL_API_SECRET;
 
