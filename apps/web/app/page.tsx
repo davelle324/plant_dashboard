@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
 import { getFeed, getPlants, getReminders } from "@/lib/server-api";
@@ -9,12 +10,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-async function fetchData() {
+async function fetchData(userId: string | null) {
   try {
     const [plants, reminders, feed] = await Promise.all([
-      getPlants(),
-      getReminders(),
-      getFeed().catch(() => []),
+      getPlants(userId),
+      getReminders(userId),
+      getFeed(userId).catch(() => []),
     ]);
     return { plants, reminders, feed };
   } catch {
@@ -56,7 +57,8 @@ const FEATURES = [
 ];
 
 export default async function HomePage() {
-  const { plants, reminders, feed } = await fetchData();
+  const { userId } = await auth();
+  const { plants, reminders, feed } = await fetchData(userId);
   const overdueMap = new Map(reminders.map((r) => [r.plant_id, r]));
   const coveragePct =
     plants.length === 0

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 import { getAllPhotos, getAllReminders, getPlants, getReminders } from "@/lib/server-api";
 import { DashboardGallery } from "@/components/dashboard-gallery";
@@ -9,11 +10,12 @@ import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardPage() {
+  const { userId } = await auth();
   const [plants, reminders, allReminders, allPhotos] = await Promise.all([
-    getPlants(),
-    getReminders(),
-    getAllReminders(),
-    getAllPhotos().catch(() => []),
+    getPlants(userId),
+    getReminders(userId),
+    getAllReminders(userId),
+    getAllPhotos(userId).catch(() => []),
   ]);
 
   return (

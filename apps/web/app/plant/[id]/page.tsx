@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 import { getPlant, getPlantLogs, getPhotos } from "@/lib/server-api";
 import { formatDate } from "@/lib/format";
@@ -17,11 +18,12 @@ type PlantPageProps = {
 };
 
 export default async function PlantDetailPage({ params }: PlantPageProps) {
+  const { userId } = await auth();
   const { id } = params;
   const [plant, logs, photosResult] = await Promise.all([
-    getPlant(id),
-    getPlantLogs(id),
-    getPhotos(Number(id)).catch(() => []),
+    getPlant(id, userId),
+    getPlantLogs(id, userId),
+    getPhotos(Number(id), userId).catch(() => []),
   ]);
   const photos = photosResult;
 

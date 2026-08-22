@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 import { getAnalytics } from "@/lib/server-api";
 import { ActivityChart, TypeBreakdownChart, WateringTrendsChart } from "@/components/analytics-charts";
@@ -7,9 +8,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import type { PlantStat } from "@/lib/types";
 
 export default async function AnalyticsPage() {
+  const { userId } = await auth();
   let analytics;
   try {
-    analytics = await getAnalytics();
+    analytics = await getAnalytics(userId);
   } catch {
     return (
       <main className="mx-auto min-h-screen max-w-5xl px-6 py-8 md:px-10">

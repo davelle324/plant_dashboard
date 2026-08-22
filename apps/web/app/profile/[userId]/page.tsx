@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 
 import { getUserGallery, getUserProfile } from "@/lib/server-api";
 import { FollowButton } from "@/components/follow-button";
@@ -11,12 +12,13 @@ import type { PhotoWithPlant, PublicUser } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage({ params }: { params: { userId: string } }) {
+  const { userId } = await auth();
   let profile: PublicUser;
   let gallery: PhotoWithPlant[] = [];
   try {
     [profile, gallery] = await Promise.all([
-      getUserProfile(params.userId),
-      getUserGallery(params.userId).catch(() => []),
+      getUserProfile(params.userId, userId),
+      getUserGallery(params.userId, userId).catch(() => []),
     ]);
   } catch {
     notFound();

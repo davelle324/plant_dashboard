@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 import { getPlantLogs } from "@/lib/server-api";
 import { formatDate } from "@/lib/format";
@@ -10,8 +11,9 @@ type PlantLogsPageProps = {
 };
 
 export default async function PlantLogsPage({ params }: PlantLogsPageProps) {
+  const { userId } = await auth();
   const { id } = params;
-  const logs = await getPlantLogs(id);
+  const logs = await getPlantLogs(id, userId);
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-8 md:px-10">

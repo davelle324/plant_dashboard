@@ -1,12 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-
 import type { Analytics, FeedItem, LogEntry, Photo, PhotoWithPlant, Plant, PublicUser, Reminder } from "./types";
 
 const API_BASE_URL = (process.env.API_INTERNAL_URL ?? "http://api:8000").replace(/\/$/, "");
 
-async function serverRequest<T>(path: string): Promise<T> {
-  const { userId } = await auth();
-
+async function serverRequest<T>(path: string, userId: string | null): Promise<T> {
   const headers: Record<string, string> = {};
   if (userId) headers["x-clerk-user-id"] = userId;
   if (process.env.INTERNAL_API_SECRET) headers["x-internal-secret"] = process.env.INTERNAL_API_SECRET;
@@ -25,18 +21,18 @@ async function serverRequest<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export const getPlants = () => serverRequest<Plant[]>("/plants");
-export const getPlant = (id: string) => serverRequest<Plant>(`/plants/${id}`);
-export const getPlantLogs = (id: string) => serverRequest<LogEntry[]>(`/plants/${id}/logs`);
-export const getPhotos = (plantId: number) => serverRequest<Photo[]>(`/plants/${plantId}/photos`);
-export const getReminders = () => serverRequest<Reminder[]>("/reminders");
-export const getAllReminders = () => serverRequest<Reminder[]>("/reminders?all=true");
-export const getAllPhotos = () => serverRequest<PhotoWithPlant[]>("/photos");
-export const getAnalytics = () => serverRequest<Analytics>("/analytics");
-export const getFeed = () => serverRequest<FeedItem[]>("/feed");
-export const discoverUsers = (q?: string) => {
+export const getPlants = (userId: string | null) => serverRequest<Plant[]>("/plants", userId);
+export const getPlant = (id: string, userId: string | null) => serverRequest<Plant>(`/plants/${id}`, userId);
+export const getPlantLogs = (id: string, userId: string | null) => serverRequest<LogEntry[]>(`/plants/${id}/logs`, userId);
+export const getPhotos = (plantId: number, userId: string | null) => serverRequest<Photo[]>(`/plants/${plantId}/photos`, userId);
+export const getReminders = (userId: string | null) => serverRequest<Reminder[]>("/reminders", userId);
+export const getAllReminders = (userId: string | null) => serverRequest<Reminder[]>("/reminders?all=true", userId);
+export const getAllPhotos = (userId: string | null) => serverRequest<PhotoWithPlant[]>("/photos", userId);
+export const getAnalytics = (userId: string | null) => serverRequest<Analytics>("/analytics", userId);
+export const getFeed = (userId: string | null) => serverRequest<FeedItem[]>("/feed", userId);
+export const discoverUsers = (userId: string | null, q?: string) => {
   const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
-  return serverRequest<PublicUser[]>(`/users${qs}`);
+  return serverRequest<PublicUser[]>(`/users${qs}`, userId);
 };
-export const getUserProfile = (userId: number | string) => serverRequest<PublicUser>(`/users/${userId}`);
-export const getUserGallery = (userId: number | string) => serverRequest<PhotoWithPlant[]>(`/users/${userId}/gallery`);
+export const getUserProfile = (id: number | string, userId: string | null) => serverRequest<PublicUser>(`/users/${id}`, userId);
+export const getUserGallery = (id: number | string, userId: string | null) => serverRequest<PhotoWithPlant[]>(`/users/${id}/gallery`, userId);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 import { discoverUsers } from "@/lib/server-api";
 import { FollowButton } from "@/components/follow-button";
@@ -13,10 +14,11 @@ export default async function PeoplePage({
 }: {
   searchParams: { q?: string };
 }) {
+  const { userId } = await auth();
   const query = searchParams.q ?? "";
   let users: PublicUser[] = [];
   try {
-    users = await discoverUsers(query);
+    users = await discoverUsers(userId, query);
   } catch {
     users = [];
   }
