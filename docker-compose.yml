@@ -52,6 +52,7 @@ services:
     build:
       context: ./apps/web
     environment:
+      DOCKER: "true"
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ""
       CLERK_SECRET_KEY: ""
       API_INTERNAL_URL: http://api:8000

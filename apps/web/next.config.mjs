@@ -1,9 +1,10 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
+const isDocker = process.env.DOCKER === "true";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
-  distDir: "/tmp/plants-next",
+  ...(isDocker && { output: "standalone", distDir: "/tmp/plants-next" }),
   experimental: {
     instrumentationHook: true,
   },
