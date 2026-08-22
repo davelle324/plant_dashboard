@@ -15,7 +15,10 @@ from app import models  # noqa: F401 — registers all tables on Base.metadata
 config = context.config
 
 # Use the same DATABASE_URL the app uses, rather than a hardcoded ini value.
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", "sqlite:///./plants.db"))
+db_url = os.getenv("DATABASE_URL", "sqlite:///./plants.db")
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
