@@ -52,9 +52,15 @@ async function proxy(request: Request, path: string[] | undefined) {
     body,
   });
 
+  // Node fetch auto-decompresses the body, so strip encoding headers to prevent
+  // the browser from trying to decompress an already-decoded response.
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.delete("content-encoding");
+  responseHeaders.delete("transfer-encoding");
+
   return new Response(response.body, {
     status: response.status,
-    headers: response.headers,
+    headers: responseHeaders,
   });
 }
 
