@@ -1,10 +1,5 @@
 import type { Analytics, FeedItem, LogEntry, Photo, PhotoWithPlant, Plant, PublicUser, Reminder } from "./types";
 
-const API_BASE_URL = typeof window === "undefined"
-  ? (process.env.NEXT_PUBLIC_APP_URL
-      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"))
-  : "";
-
 export type PlantInput = {
   name: string;
   species: string;
@@ -22,25 +17,13 @@ export type LogInput = {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseHeaders: Record<string, string> = {};
 
-  if (init?.body) baseHeaders["Content-Type"] = "application/json";
-
-  // Server-side: forward the incoming request's cookies so Clerk's session
-  // cookie reaches the /api/[...path] route handler and auth() returns a userId.
-  // (Node.js fetch ignores `credentials: "include"` — cookies must be explicit.)
-  if (typeof window === "undefined") {
-    try {
-      const { cookies } = await import("next/headers");
-      const store = cookies();
-      const cookieHeader = store.getAll().map(c => `${c.name}=${c.value}`).join("; ");
-      if (cookieHeader) baseHeaders["Cookie"] = cookieHeader;
-    } catch {
-      // Not in a request context (e.g. during build) — skip
-    }
+  if (init?.body && !(init.body instanceof FormData)) {
+    baseHeaders["Content-Type"] = "application/json";
   }
 
   const headers = { ...baseHeaders, ...(init?.headers as Record<string, string> ?? {}) };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(path, {
     cache: "no-store",
     credentials: "include",
     ...init,

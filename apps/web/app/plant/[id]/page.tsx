@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getPlant, getPlantLogs, getPhotos } from "@/lib/api";
+import { getPlant, getPlantLogs, getPhotos } from "@/lib/server-api";
 import { formatDate } from "@/lib/format";
 import { computeHealthScore, healthColor } from "@/lib/health";
 import { AiChat } from "@/components/ai-chat";

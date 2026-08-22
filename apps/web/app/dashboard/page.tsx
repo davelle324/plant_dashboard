@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getAllPhotos, getAllReminders, getPlants, getReminders } from "@/lib/api";
+import { getAllPhotos, getAllReminders, getPlants, getReminders } from "@/lib/server-api";
 import { DashboardGallery } from "@/components/dashboard-gallery";
 import { HealthChart } from "@/components/health-chart";
 import { PlantForm } from "@/components/plant-form";

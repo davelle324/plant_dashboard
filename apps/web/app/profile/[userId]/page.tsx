@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getUserGallery, getUserProfile } from "@/lib/api";
+import { getUserGallery, getUserProfile } from "@/lib/server-api";
 import { FollowButton } from "@/components/follow-button";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { NavAccount } from "@/components/nav-account";

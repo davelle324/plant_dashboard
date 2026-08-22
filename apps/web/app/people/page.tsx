@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { discoverUsers } from "@/lib/api";
+import { discoverUsers } from "@/lib/server-api";
 import { FollowButton } from "@/components/follow-button";
 import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";

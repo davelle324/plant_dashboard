@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
-import { getFeed, getPlants, getReminders } from "@/lib/api";
+import { getFeed, getPlants, getReminders } from "@/lib/server-api";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { QuickWaterButton } from "@/components/quick-water-button";
 import { NavAccount } from "@/components/nav-account";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getPlantLogs } from "@/lib/api";
+import { getPlantLogs } from "@/lib/server-api";
 import { formatDate } from "@/lib/format";
 import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";

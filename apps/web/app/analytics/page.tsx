@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getAnalytics } from "@/lib/api";
+import { getAnalytics } from "@/lib/server-api";
 import { ActivityChart, TypeBreakdownChart, WateringTrendsChart } from "@/components/analytics-charts";
 import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
