@@ -31,8 +31,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || `API request failed: ${response.status} ${response.statusText}`);
+    const text = await response.text();
+    let message = text;
+    try {
+      const json = JSON.parse(text);
+      if (typeof json.detail === "string") message = json.detail;
+    } catch { /* not JSON, use raw text */ }
+    throw new Error(message || `Request failed: ${response.status} ${response.statusText}`);
   }
 
   if (response.status === 204) {

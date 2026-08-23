@@ -17,6 +17,8 @@ dependencies = [
   "boto3>=1.43.35",
   "python-dotenv>=1.2.2",
   "sentry-sdk[fastapi]>=2.63.0",
+  "pillow>=10.0.0",
+  "pillow-heif>=0.13.0",
 ]
 
 [tool.pytest.ini_options]

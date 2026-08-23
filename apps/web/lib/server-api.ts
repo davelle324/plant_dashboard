@@ -1,4 +1,4 @@
-import type { Analytics, FeedItem, LogEntry, Photo, PhotoWithPlant, Plant, PublicUser, Reminder } from "./types";
+import type { Analytics, FeedItem, LogEntry, LogWithPlant, Photo, PhotoWithPlant, Plant, PublicUser, Reminder } from "./types";
 
 const API_BASE_URL = (process.env.API_INTERNAL_URL ?? "http://api:8000").replace(/\/$/, "");
 
@@ -30,6 +30,8 @@ export const getAllReminders = (userId: string | null) => serverRequest<Reminder
 export const getAllPhotos = (userId: string | null) => serverRequest<PhotoWithPlant[]>("/photos", userId);
 export const getAnalytics = (userId: string | null) => serverRequest<Analytics>("/analytics", userId);
 export const getFeed = (userId: string | null) => serverRequest<FeedItem[]>("/feed", userId);
+export const getRecentLogs = (userId: string | null, limit = 10) =>
+  serverRequest<LogWithPlant[]>(`/logs?limit=${limit}`, userId);
 export const discoverUsers = (userId: string | null, q?: string) => {
   const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
   return serverRequest<PublicUser[]>(`/users${qs}`, userId);

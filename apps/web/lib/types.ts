@@ -27,6 +27,8 @@ export type Photo = {
 
 export type PhotoWithPlant = Photo & { plant_name: string };
 
+export type LogWithPlant = LogEntry & { plant_name: string };
+
 export type WateringInterval = {
   date: string;
   days: number;

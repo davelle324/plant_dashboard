@@ -53,6 +53,10 @@ class LogRead(LogBase):
     created_at: datetime
 
 
+class LogWithPlant(LogRead):
+    plant_name: str
+
+
 class ReminderRead(BaseModel):
     plant_id: int
     plant_name: str

@@ -178,7 +178,7 @@ export function PhotoGallery({ plantId, initialPhotos }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/*"
           className="hidden"
           onChange={(e) => handleUpload(e.target.files)}
         />

@@ -13,7 +13,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import io
+
 import httpx
+import pillow_heif
+from PIL import Image
+
+pillow_heif.register_heif_opener()
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -38,6 +44,7 @@ from .schemas import (
     LogCreate,
     LogRead,
     LogUpdate,
+    LogWithPlant,
     PhotoCaptionUpdate,
     PhotoRead,
     PhotoWithPlant,
@@ -55,7 +62,8 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:0.5b")
 INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET", "")
 
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+HEIC_EXTENSIONS = {".heic", ".heif"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"} | HEIC_EXTENSIONS
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 
 _sentry_dsn = os.getenv("SENTRY_DSN", "")
@@ -271,6 +279,32 @@ def list_logs(plant_id: int, db: Session = Depends(get_db), current_user: User =
     return db.scalars(select(Log).where(Log.plant_id == plant_id).order_by(Log.created_at.desc())).all()
 
 
+@app.get("/logs", response_model=list[LogWithPlant])
+def list_all_logs(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[LogWithPlant]:
+    rows = db.execute(
+        select(Log, Plant.name.label("plant_name"))
+        .join(Plant, Log.plant_id == Plant.id)
+        .where(Plant.user_id == current_user.id)
+        .order_by(Log.created_at.desc())
+        .limit(min(limit, 100))
+    ).all()
+    return [
+        LogWithPlant(
+            id=row.Log.id,
+            plant_id=row.Log.plant_id,
+            plant_name=row.plant_name,
+            type=row.Log.type,
+            note=row.Log.note,
+            created_at=row.Log.created_at,
+        )
+        for row in rows
+    ]
+
+
 @app.post("/logs", response_model=LogRead, status_code=201)
 def create_log(payload: LogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Log:
     plant_or_404(db, payload.plant_id, current_user.id)
@@ -334,6 +368,17 @@ async def upload_photo(
     content = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large. Max size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+
+    # Convert HEIC/HEIF to JPEG so all browsers can display it.
+    if ext in HEIC_EXTENSIONS:
+        try:
+            img = Image.open(io.BytesIO(content))
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="JPEG", quality=90)
+            content = buf.getvalue()
+            ext = ".jpg"
+        except Exception:
+            raise HTTPException(status_code=400, detail="Could not convert HEIC file. Try exporting as JPEG.")
 
     # Verify the actual file content, not just the extension (which is spoofable).
     image_type = _sniff_image_type(content)
