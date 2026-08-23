@@ -52,13 +52,18 @@ async function proxy(request: Request, path: string[] | undefined) {
     body,
   });
 
-  // Node fetch auto-decompresses the body, so strip encoding headers to prevent
-  // the browser from trying to decompress an already-decoded response.
+  // Node fetch auto-decompresses the body, but the original content-length and
+  // content-encoding headers reflect the compressed size/encoding. Fully buffer
+  // the body so the browser gets correct data with no length mismatch — piping
+  // the raw stream causes iOS Safari to truncate and fail to parse JSON.
+  const responseBody = response.status === 204 ? null : await response.arrayBuffer();
+
   const responseHeaders = new Headers(response.headers);
   responseHeaders.delete("content-encoding");
   responseHeaders.delete("transfer-encoding");
+  responseHeaders.delete("content-length"); // recalculated from buffered body
 
-  return new Response(response.body, {
+  return new Response(responseBody, {
     status: response.status,
     headers: responseHeaders,
   });

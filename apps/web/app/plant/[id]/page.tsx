@@ -10,6 +10,7 @@ import { LogEntryCard } from "@/components/log-entry-card";
 import { LogForm } from "@/components/log-form";
 import { PhotoGallery } from "@/components/photo-gallery";
 import { PlantForm } from "@/components/plant-form";
+import { DeletePlantButton } from "@/components/delete-plant-button";
 import { NavAccount } from "@/components/nav-account";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -78,6 +79,7 @@ export default async function PlantDetailPage({ params }: PlantPageProps) {
               <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Edit plant</h3>
               <div className="mt-3">
                 <PlantForm plant={plant} />
+                <DeletePlantButton plantId={plant.id} plantName={plant.name} />
               </div>
             </div>
           </div>

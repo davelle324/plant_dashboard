@@ -44,7 +44,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  return JSON.parse(await response.text()) as T;
 }
 
 export function getPlants() {
