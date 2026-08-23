@@ -83,6 +83,14 @@ class PhotoWithPlant(PhotoRead):
     plant_name: str
 
 
+class PublicPhotoItem(BaseModel):
+    id: int
+    plant_id: int
+    filename: str
+    caption: str | None
+    plant_name: str
+
+
 class AskRequest(BaseModel):
     plant_id: int
     question: str = Field(max_length=500)

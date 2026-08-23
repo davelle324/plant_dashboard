@@ -29,6 +29,14 @@ export type PhotoWithPlant = Photo & { plant_name: string };
 
 export type LogWithPlant = LogEntry & { plant_name: string };
 
+export type PublicPhotoItem = {
+  id: number;
+  plant_id: number;
+  filename: string;
+  caption: string | null;
+  plant_name: string;
+};
+
 export type WateringInterval = {
   date: string;
   days: number;

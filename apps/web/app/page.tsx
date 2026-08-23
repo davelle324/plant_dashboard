@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { SignInButton } from "@clerk/nextjs";
 
-import { getFeed, getAllReminders, getPlants, getRecentLogs } from "@/lib/server-api";
+import { getFeed, getAllReminders, getPlants, getPublicPhotos, getRecentLogs } from "@/lib/server-api";
 import { PlantThumbnail } from "@/components/plant-thumbnail";
 import { QuickWaterButton } from "@/components/quick-water-button";
 import { NavAccount } from "@/components/nav-account";
@@ -105,6 +105,8 @@ export default async function HomePage() {
 
   // ── Signed-out: landing page ─────────────────────────────────────────────
   if (!userId) {
+    const publicPhotos = await getPublicPhotos(12).catch(() => []);
+
     return (
       <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-16 px-6 py-8 md:px-10">
 
@@ -182,6 +184,34 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
+
+        {/* Community photos */}
+        {publicPhotos.length > 0 && (
+          <section>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-moss dark:text-fern">From the community</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">What people are growing right now.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {publicPhotos.map((photo) => (
+                <div
+                  key={photo.id}
+                  className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white/70 shadow-soft dark:border-white/10 dark:bg-white/5"
+                >
+                  <PlantThumbnail
+                    src={`/api/uploads/${photo.plant_id}/${photo.filename}`}
+                    alt={photo.plant_name}
+                    className="aspect-square w-full object-cover"
+                  />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs text-white">
+                    <span className="block font-medium">{photo.plant_name}</span>
+                    {photo.caption && (
+                      <span className="block text-white/70">{photo.caption}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Bottom CTA */}
         <section className="rounded-[2rem] bg-ink p-10 text-center text-cream shadow-soft">

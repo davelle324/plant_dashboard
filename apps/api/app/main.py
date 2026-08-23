@@ -45,6 +45,7 @@ from .schemas import (
     LogRead,
     LogUpdate,
     LogWithPlant,
+    PublicPhotoItem,
     PhotoCaptionUpdate,
     PhotoRead,
     PhotoWithPlant,
@@ -415,6 +416,27 @@ def update_photo_caption(
     db.commit()
     db.refresh(photo)
     return photo
+
+
+@app.get("/photos/public", response_model=list[PublicPhotoItem])
+@limiter.limit("60/minute")
+def list_public_photos(request: Request, limit: int = 12, db: Session = Depends(get_db)) -> list[PublicPhotoItem]:
+    rows = db.execute(
+        select(Photo, Plant.name.label("plant_name"))
+        .join(Plant, Photo.plant_id == Plant.id)
+        .order_by(Photo.created_at.desc())
+        .limit(min(limit, 50))
+    ).all()
+    return [
+        PublicPhotoItem(
+            id=row.Photo.id,
+            plant_id=row.Photo.plant_id,
+            filename=row.Photo.filename,
+            caption=row.Photo.caption,
+            plant_name=row.plant_name,
+        )
+        for row in rows
+    ]
 
 
 @app.get("/photos", response_model=list[PhotoWithPlant])

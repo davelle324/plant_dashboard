@@ -134,12 +134,11 @@ export function PhotoGallery({ plantId, initialPhotos }: Props) {
         const photo = await uploadPhoto(plantId, files[0]);
         setPhotos((prev) => [photo, ...prev]);
         toast.success("Photo uploaded — click it to add a caption");
-        router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Upload failed");
       } finally {
-        // Reset so the same file can be re-selected if needed
         if (inputRef.current) inputRef.current.value = "";
+        router.refresh();
       }
     });
   };
@@ -151,9 +150,10 @@ export function PhotoGallery({ plantId, initialPhotos }: Props) {
         await deletePhoto(photo.id);
         setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
         toast.success("Photo deleted");
-        router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Delete failed");
+      } finally {
+        router.refresh();
       }
     });
   };
@@ -161,7 +161,6 @@ export function PhotoGallery({ plantId, initialPhotos }: Props) {
   const handleCaptionSave = async (photo: Photo, caption: string | null) => {
     const updated = await updatePhotoCaption(photo.id, caption);
     setPhotos((prev) => prev.map((p) => (p.id === photo.id ? updated : p)));
-    router.refresh();
   };
 
   return (
