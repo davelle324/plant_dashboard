@@ -1,4 +1,5 @@
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import "./globals.css";
 import type { Metadata } from "next";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             children
           )}
           <Toaster richColors position="bottom-right" />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
